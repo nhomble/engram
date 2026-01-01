@@ -9,13 +9,34 @@ This guide shows you how to configure Claude Code to automatically load engram m
 
 ## Steps
 
-1. Create the `.claude` directory in your project (or home directory for global config):
+1. Create the hooks directory:
 
 ```bash
-mkdir -p .claude
+mkdir -p .claude/hooks
 ```
 
-2. Create `.claude/hooks.json` with the session start hook:
+2. Create the session start script at `.claude/hooks/session-start.sh`:
+
+```sh
+#!/bin/sh
+# Session start hook for Claude Code
+
+set -e
+
+# Run GC silently (clean up low-engagement memories)
+engram gc 2>/dev/null || true
+
+# Load memories for this session
+engram init --scope global --scope "project:$PWD"
+```
+
+3. Make the script executable:
+
+```bash
+chmod +x .claude/hooks/session-start.sh
+```
+
+4. Create `.claude/hooks.json` to register the hook:
 
 ```json
 {
@@ -23,16 +44,14 @@ mkdir -p .claude
     "SessionStart": [
       {
         "type": "command",
-        "command": "engram gc 2>/dev/null; engram init --scope global --scope \"project:$PWD\""
+        "command": ".claude/hooks/session-start.sh"
       }
     ]
   }
 }
 ```
 
-This runs garbage collection and loads memories every time a Claude Code session starts.
-
-3. Create `.claude/settings.json` to auto-approve engram commands:
+5. Create `.claude/settings.json` to auto-approve engram commands:
 
 ```json
 {
@@ -42,14 +61,14 @@ This runs garbage collection and loads memories every time a Claude Code session
 }
 ```
 
-4. (Optional) Copy the skill file to help Claude understand how to use engram:
+6. (Optional) Copy the skill file to help Claude understand how to use engram:
 
 ```bash
 mkdir -p .claude/skills
 cp /path/to/engram/.claude/skills/engram.md .claude/skills/
 ```
 
-5. Start a new Claude Code session to verify:
+7. Start a new Claude Code session to verify:
 
 ```bash
 claude
@@ -61,8 +80,9 @@ You should see your memories loaded in the context.
 
 **Memories not loading?**
 - Check that `engram` is in your PATH: `which engram`
-- Verify the hook syntax in `.claude/hooks.json`
-- Try running manually: `engram init --scope global --scope "project:$PWD"`
+- Verify the hook script is executable: `ls -la .claude/hooks/`
+- Try running manually: `.claude/hooks/session-start.sh`
 
 **Permission errors?**
 - Ensure `~/.engram/` directory exists and is writable
+- Ensure the hook script is executable: `chmod +x .claude/hooks/session-start.sh`
