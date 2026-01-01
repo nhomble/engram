@@ -356,9 +356,11 @@ pub fn get_memories_for_init(conn: &Connection, scopes: &[String]) -> Result<Vec
 
     // Increment review_count for returned memories
     if !memories.is_empty() {
+        // Offset placeholders by 1 since ?1 is the timestamp
+        let update_placeholders: Vec<String> = (2..=scopes.len() + 1).map(|i| format!("?{}", i)).collect();
         let update_sql = format!(
             "UPDATE memories SET review_count = review_count + 1, last_reviewed_at = ?1 WHERE scope IN ({})",
-            placeholders.join(", ")
+            update_placeholders.join(", ")
         );
         let mut update_params: Vec<&dyn rusqlite::ToSql> = vec![&timestamp];
         update_params.extend(scopes.iter().map(|s| s as &dyn rusqlite::ToSql));
