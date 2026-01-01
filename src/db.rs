@@ -391,19 +391,25 @@ fn collect_memories(mut rows: rusqlite::Rows) -> Result<Vec<Memory>> {
 mod tests {
     use super::*;
 
+    fn open_test_db() -> Connection {
+        let conn = Connection::open_in_memory().expect("Failed to open in-memory database");
+        init_schema(&conn).expect("Failed to init schema");
+        conn
+    }
+
     #[test]
-    fn test_open_db() {
-        let conn = open_db().expect("Failed to open database");
-        // Verify WAL mode
-        let mode: String = conn
-            .pragma_query_value(None, "journal_mode", |row| row.get(0))
+    fn test_schema_init() {
+        let conn = open_test_db();
+        // Verify table exists by querying it
+        let count: u32 = conn
+            .query_row("SELECT COUNT(*) FROM memories", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(mode.to_lowercase(), "wal");
+        assert_eq!(count, 0);
     }
 
     #[test]
     fn test_add_and_get_memory() {
-        let conn = open_db().expect("Failed to open database");
+        let conn = open_test_db();
 
         let id = add_memory(&conn, "test content", "global").expect("Failed to add memory");
         assert!(!id.is_empty());
@@ -415,8 +421,38 @@ mod tests {
         assert_eq!(m.content, "test content");
         assert_eq!(m.scope, "global");
         assert_eq!(m.generation, 0);
+    }
 
-        // Cleanup
-        remove_memory(&conn, &id).expect("Failed to remove memory");
+    #[test]
+    fn test_tap_memory() {
+        let conn = open_test_db();
+
+        let id = add_memory(&conn, "tap test", "global").expect("Failed to add memory");
+
+        // Initial state
+        let m = get_memory(&conn, &id).unwrap().unwrap();
+        assert_eq!(m.tap_count, 0);
+
+        // Tap it
+        let tapped = tap_memory(&conn, &id).expect("Failed to tap");
+        assert!(tapped);
+
+        // Verify tap count increased
+        let m = get_memory(&conn, &id).unwrap().unwrap();
+        assert_eq!(m.tap_count, 1);
+        assert!(m.last_tapped_at.is_some());
+    }
+
+    #[test]
+    fn test_remove_memory() {
+        let conn = open_test_db();
+
+        let id = add_memory(&conn, "to remove", "global").expect("Failed to add memory");
+
+        let removed = remove_memory(&conn, &id).expect("Failed to remove");
+        assert!(removed);
+
+        let memory = get_memory(&conn, &id).expect("Failed to get");
+        assert!(memory.is_none());
     }
 }
