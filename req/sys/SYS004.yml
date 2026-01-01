@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  SQLite Storage
+level: 1.3
+links:
+- REQ001: KlyTnIkxqNYASNjtrNzEc6FI2YuaugdxaMKNQlHaAHw=
+normative: true
+ref: ''
+reviewed: zBfcgH02XgNtpPgef3kp1xjtFjqhA8UbwkFK4OG8Ulg=
+text: |
+  SQLite database with WAL mode for storage.

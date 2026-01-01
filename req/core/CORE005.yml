@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  User Memory Validation
+level: 1.4
+links:
+- REQ001: KlyTnIkxqNYASNjtrNzEc6FI2YuaugdxaMKNQlHaAHw=
+normative: true
+ref: ''
+reviewed: yjsfNd5baHy3iRhbs62fRZIbKbFsHGTD_qicdJ1-GJI=
+text: |
+  Users can validate memories via prompted review and correct or reject inaccurate ones.

@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  Scope Attribute
+level: '1.10'
+links:
+- CORE006: ZRJ_gjTZTgi2KgBuaml1PTqSLIUJWmfEZv7RV7WkOk0=
+normative: true
+ref: ''
+reviewed: lZoowgQohRyZ2EeAHWBO3A7k1fb0t8TfyQZck-g3loQ=
+text: |
+  Scope attribute on memories (global / project:<path>).

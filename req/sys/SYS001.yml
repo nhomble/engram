@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  Rust Implementation
+level: 1.0
+links:
+- REQ001: KlyTnIkxqNYASNjtrNzEc6FI2YuaugdxaMKNQlHaAHw=
+normative: true
+ref: ''
+reviewed: hZlazaxlgjKZ0M7cLm8HisXMskYebdSF7F-XxsqEyJk=
+text: |
+  CLI implemented in Rust.

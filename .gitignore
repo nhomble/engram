@@ -1,0 +1,38 @@
+# Doorstop published outputs
+publish/
+*.html
+req/**/*.html
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+.venv/
+venv/
+
+# Rust
+target/
+Cargo.lock
+
+# Local SQLite database (for testing)
+engram.db
+engram.db-wal
+engram.db-shm
+
+# Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+AGENTS.md
+CLAUDE.md

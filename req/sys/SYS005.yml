@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  Storage Location
+level: 1.4
+links:
+- REQ001: KlyTnIkxqNYASNjtrNzEc6FI2YuaugdxaMKNQlHaAHw=
+normative: true
+ref: ''
+reviewed: PG-76CZrezLWrvym4CIMr149sN5_5U9-lhAFqf5ua-k=
+text: |
+  Storage location: ~/.local/share/engram/engram.db

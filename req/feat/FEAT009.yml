@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  CRUD Commands
+level: 1.8
+links:
+- CORE005: 9Wko9rvIOCw6_w37-PutX3VlhuE38ZV2_ASL_GewLiM=
+normative: true
+ref: ''
+reviewed: o5qp2Mknf8r1QyPYockLVyAbIEAeoBniJe4AHOfCfyY=
+text: |
+  CLI commands to add, edit, and show individual memories.

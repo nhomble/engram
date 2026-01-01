@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  Session End Persistence
+level: 1.2
+links:
+- REQ001: KlyTnIkxqNYASNjtrNzEc6FI2YuaugdxaMKNQlHaAHw=
+normative: true
+ref: ''
+reviewed: Y6HN06KS9Cnrip8OtTGnCMoF5EK1gmX8LD1QD2QfK_I=
+text: |
+  On session end, usage data is persisted for future GC decisions.

@@ -1,0 +1,10 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "engram gc 2>/dev/null; engram init --scope global --scope \"project:$PWD\""
+      }
+    ]
+  }
+}

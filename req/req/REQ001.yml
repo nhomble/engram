@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  Garbage-Collected Memory for Agents
+level: 1.0
+links: []
+normative: true
+ref: ''
+reviewed: KlyTnIkxqNYASNjtrNzEc6FI2YuaugdxaMKNQlHaAHw=
+text: |
+  Provide garbage-collected memory for Claude agents where useful facts
+  survive across sessions and irrelevant ones fade over time.

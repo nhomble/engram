@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  Generational Model
+level: 1.5
+links:
+- CORE004: 2xF6zmDgzg5-2hhkUm5cyzDjL9E-RFMRgTP0xUWvNO8=
+normative: true
+ref: ''
+reviewed: HMu9QtZmkQC3kucK-zP9x2g2vUD4r9s-lbftOoQtPwk=
+text: |
+  Generational model (Gen0 -> Gen1 -> Gen2) for memory lifecycle.

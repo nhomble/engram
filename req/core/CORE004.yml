@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  Memory Decay and Persistence
+level: 1.3
+links:
+- REQ001: KlyTnIkxqNYASNjtrNzEc6FI2YuaugdxaMKNQlHaAHw=
+normative: true
+ref: ''
+reviewed: TgpZV2TX5nYio6E6hB9YKeysape6pdOxz7E3pTADRYQ=
+text: |
+  Over time, unused memories fade and useful memories persist.

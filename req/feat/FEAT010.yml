@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  Validation Prompt
+level: 1.9
+links:
+- CORE005: 9Wko9rvIOCw6_w37-PutX3VlhuE38ZV2_ASL_GewLiM=
+normative: true
+ref: ''
+reviewed: 3BlqLkIXTqcza6ACBtLNdsKm3GJ5Y1X3EhFeoKB91jk=
+text: |
+  Validation prompt output for user review.

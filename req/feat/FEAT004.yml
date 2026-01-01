@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  Tap Command
+level: 1.3
+links:
+- CORE002: NGDK0DZrM35TdTN87-tYvj2WZwGJtUETgeXeRmhYEe0=
+normative: true
+ref: ''
+reviewed: KgVN9LgjE5EHDptBGONVwmNmFi4QmGTTonKmMAj4FOo=
+text: |
+  `engram tap` command records memory usage.

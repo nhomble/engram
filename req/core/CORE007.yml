@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  Memory Inspection and Management
+level: 1.6
+links:
+- REQ001: KlyTnIkxqNYASNjtrNzEc6FI2YuaugdxaMKNQlHaAHw=
+normative: true
+ref: ''
+reviewed: 1W425GprE44MDUTorAvbvy4dC-S5CCCf7-_T377snpE=
+text: |
+  Users can inspect all stored memories and manually prune them for debugging or maintenance.

@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  Init Command
+level: 1.0
+links:
+- CORE001: MJxTjhv8KTBnVYWjdB86f8zzYaEEw2a_n4IgQ2wlDUY=
+normative: true
+ref: ''
+reviewed: XQpfjyeGlO463l69OlD9-2Fain4DAqbXT04ZlaeRwdQ=
+text: |
+  `engram init` command outputs memories for context injection.

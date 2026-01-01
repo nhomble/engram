@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  Exponential Decay
+level: 1.7
+links:
+- CORE004: 2xF6zmDgzg5-2hhkUm5cyzDjL9E-RFMRgTP0xUWvNO8=
+normative: true
+ref: ''
+reviewed: 5Te0sNNMfYJn0nbjuFIzWLLeYhQKB6QqbguAkFTssI4=
+text: |
+  Exponential decay with taps resetting the clock.

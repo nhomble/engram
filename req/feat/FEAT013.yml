@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  Stats Command
+level: 1.12
+links:
+- CORE007: tvM5Whvw7Ncu3K8vK4fxPikk_Pva8FAZack6nOSHlok=
+normative: true
+ref: ''
+reviewed: vlQAeKE4WNG9tLVG5pphxmGXJ9Z2rR_tMo-7XSNR6l4=
+text: |
+  `engram stats` command for memory usage statistics.

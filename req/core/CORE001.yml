@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  Session Start Memory Loading
+level: 1.0
+links:
+- REQ001: KlyTnIkxqNYASNjtrNzEc6FI2YuaugdxaMKNQlHaAHw=
+normative: true
+ref: ''
+reviewed: 3DntkHZiT4TNad6FMHKV7UdXCOH6y_ofYaP_RStJTYw=
+text: |
+  On session start, relevant memories are loaded into the agent's context.

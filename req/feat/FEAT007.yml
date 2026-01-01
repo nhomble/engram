@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  GC Command
+level: 1.6
+links:
+- CORE004: 2xF6zmDgzg5-2hhkUm5cyzDjL9E-RFMRgTP0xUWvNO8=
+normative: true
+ref: ''
+reviewed: _VbSRCnOju8OsSJ8ZoSIR82iXLjEavUZz3tAIxP-dmo=
+text: |
+  `engram gc` command runs promotion/demotion/expiry.

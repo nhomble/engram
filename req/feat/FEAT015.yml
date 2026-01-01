@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  Configurable GC
+level: 1.14
+links:
+- CORE004: 2xF6zmDgzg5-2hhkUm5cyzDjL9E-RFMRgTP0xUWvNO8=
+normative: true
+ref: ''
+reviewed: vpFAKnvFByelc7NjFYb0SrWHq8h0Ih9uo-IYICzfATE=
+text: |
+  Configurable GC thresholds (--promote-threshold, --expire-days) and --dry-run mode.

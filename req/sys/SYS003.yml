@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  Fast Cold Start
+level: 1.2
+links:
+- REQ001: KlyTnIkxqNYASNjtrNzEc6FI2YuaugdxaMKNQlHaAHw=
+normative: true
+ref: ''
+reviewed: IUOCKoIa221pz3e8d-t09SloiTD3CMUPuWBXbv4Bk-Y=
+text: |
+  Fast cold start suitable for hook invocation.

@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  Flush Command
+level: 1.4
+links:
+- CORE003: 9KCRqJN_Mmlr0E3DBai839OIPklU9BB6ME0TXsRgyZ0=
+normative: true
+ref: ''
+reviewed: 06lv66CDum72xhwQ6aTp1Xxw3-HouR3mzfQa8JNZZco=
+text: |
+  `engram flush` command persists session tap data.

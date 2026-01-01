@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  Memory Scoping
+level: 1.5
+links:
+- REQ001: KlyTnIkxqNYASNjtrNzEc6FI2YuaugdxaMKNQlHaAHw=
+normative: true
+ref: ''
+reviewed: O0eVIlQMxXzC94BRhzNsfWyuahZ83oTPhXD_pnVCBMw=
+text: |
+  Memories are scoped so project-specific facts don't pollute unrelated sessions.

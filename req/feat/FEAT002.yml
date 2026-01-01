@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  Scope Filtering
+level: 1.1
+links:
+- CORE001: MJxTjhv8KTBnVYWjdB86f8zzYaEEw2a_n4IgQ2wlDUY=
+normative: true
+ref: ''
+reviewed: ZgHRS_xNLh4_CkOxpLLr1_iFOlnXR-ADWFfS8-WwVIM=
+text: |
+  Filter memories by scope (global + current project).

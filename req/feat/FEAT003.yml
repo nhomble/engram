@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  Generation Priority
+level: 1.2
+links:
+- CORE001: MJxTjhv8KTBnVYWjdB86f8zzYaEEw2a_n4IgQ2wlDUY=
+normative: true
+ref: ''
+reviewed: 4lJieA9tbO7S9RZCdT47gIO29XVj9pSbeSBK3vo1Elg=
+text: |
+  Prioritize higher-generation memories for injection.

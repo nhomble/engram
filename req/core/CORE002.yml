@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  Memory Usage Recording
+level: 1.1
+links:
+- REQ001: KlyTnIkxqNYASNjtrNzEc6FI2YuaugdxaMKNQlHaAHw=
+normative: true
+ref: ''
+reviewed: McxmuYm25pEPq7AlqZMaQ2pOIabDT-u1eazXjjm0jkY=
+text: |
+  During a session, memory usage is recorded when memories inform responses.

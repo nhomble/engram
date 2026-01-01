@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  Fuzzy Tap Matching
+level: 1.13
+links:
+- CORE002: NGDK0DZrM35TdTN87-tYvj2WZwGJtUETgeXeRmhYEe0=
+normative: true
+ref: ''
+reviewed: 06r92nmmsHKHu-9YCdYIliWR68FkXxtzMdprWBIlksU=
+text: |
+  `engram tap --match "<substring>"` for fuzzy memory matching.

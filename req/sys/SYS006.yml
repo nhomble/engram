@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  Concurrency Support
+level: 1.5
+links:
+- REQ001: KlyTnIkxqNYASNjtrNzEc6FI2YuaugdxaMKNQlHaAHw=
+normative: true
+ref: ''
+reviewed: cIqvrkpa1_I_DJ61Tdz-EmXrVlLH9NJA0hQ_U3bxR40=
+text: |
+  Support concurrent reads; short transactions with retry-on-busy for writes.
