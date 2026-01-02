@@ -37,6 +37,9 @@ pub fn open_db() -> Result<Connection> {
     // Enable WAL mode for better concurrency
     conn.pragma_update(None, "journal_mode", "WAL")?;
 
+    // Set busy timeout to 5 seconds for retry-on-busy
+    conn.busy_timeout(std::time::Duration::from_secs(5))?;
+
     // Initialize schema
     init_schema(&conn)?;
 
