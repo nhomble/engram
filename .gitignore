@@ -18,7 +18,8 @@ venv/
 target/
 Cargo.lock
 
-# Local SQLite database (for testing)
+# Local engram data (user-specific)
+.engram/
 engram.db
 engram.db-wal
 engram.db-shm

@@ -4,7 +4,7 @@ mod db;
 
 #[derive(Parser)]
 #[command(name = "engram")]
-#[command(about = "Garbage-collected memory for Claude agents")]
+#[command(about = "Memory observability for Claude agents")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -43,15 +43,6 @@ enum Commands {
         /// Match memories by substring
         #[arg(long = "match")]
         match_str: Option<String>,
-    },
-    /// Run garbage collection
-    Gc {
-        /// Dry run - show what would be done
-        #[arg(long)]
-        dry_run: bool,
-        /// Minimum taps to survive GC (memories with fewer taps are expired)
-        #[arg(long, default_value = "1")]
-        min_taps: u32,
     },
     /// Show memory statistics
     Stats,
@@ -214,26 +205,6 @@ fn main() {
                 }
                 if !not_found.is_empty() {
                     eprintln!("Not found: {}", not_found.join(", "));
-                    std::process::exit(1);
-                }
-            }
-        }
-        Commands::Gc { dry_run, min_taps } => {
-            match db::run_gc(&conn, min_taps, dry_run) {
-                Ok(expired) => {
-                    let prefix = if dry_run { "[DRY RUN] " } else { "" };
-
-                    if expired.is_empty() {
-                        println!("{}No memories expired.", prefix);
-                    } else {
-                        println!("{}Expired {} memory(ies):", prefix, expired.len());
-                        for (_id, content, taps) in &expired {
-                            println!("  - {} (taps:{})", truncate(content, 40), taps);
-                        }
-                    }
-                }
-                Err(e) => {
-                    eprintln!("Failed to run GC: {}", e);
                     std::process::exit(1);
                 }
             }
