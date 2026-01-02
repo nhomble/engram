@@ -7,6 +7,6 @@ links:
 - CORE007: tvM5Whvw7Ncu3K8vK4fxPikk_Pva8FAZack6nOSHlok=
 normative: true
 ref: ''
-reviewed: DTfeWK6YaetsEolF_u63emfEhE3DaXRxfVKKDN755kA=
+reviewed: 88NTxV2_Wn1RmATXSsTprTHy3c4oPaKaM6hoKe0dYg8=
 text: |
-  CLI commands to list memories with filters (scope, generation, age) and remove them.
+  CLI commands to list memories and remove them.

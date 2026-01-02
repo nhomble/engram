@@ -1,12 +1,12 @@
 active: true
 derived: false
 header: |
-  Storage Location
+  Per-Workspace Storage
 level: 1.4
 links:
 - REQ001: KlyTnIkxqNYASNjtrNzEc6FI2YuaugdxaMKNQlHaAHw=
 normative: true
 ref: ''
-reviewed: PG-76CZrezLWrvym4CIMr149sN5_5U9-lhAFqf5ua-k=
+reviewed: v1jFLOL_nBzGjApJKFzZghkQmKgqiWOpAp9yX5zcp5k=
 text: |
-  Storage location: ~/.local/share/engram/engram.db
+  Storage location: .engram/engram.db in current workspace.
