@@ -61,6 +61,18 @@ fn init_schema(conn: &Connection) -> Result<()> {
 
         CREATE INDEX IF NOT EXISTS idx_memories_scope ON memories(scope);
         CREATE INDEX IF NOT EXISTS idx_memories_generation ON memories(generation);
+
+        CREATE TABLE IF NOT EXISTS events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp INTEGER NOT NULL,
+            action TEXT NOT NULL,
+            memory_id TEXT,
+            data TEXT
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp);
+        CREATE INDEX IF NOT EXISTS idx_events_action ON events(action);
+        CREATE INDEX IF NOT EXISTS idx_events_memory_id ON events(memory_id);
         "
     )?;
 
@@ -68,6 +80,15 @@ fn init_schema(conn: &Connection) -> Result<()> {
     let _ = conn.execute("ALTER TABLE memories ADD COLUMN review_count INTEGER NOT NULL DEFAULT 0", []);
     let _ = conn.execute("ALTER TABLE memories ADD COLUMN last_reviewed_at INTEGER", []);
 
+    Ok(())
+}
+
+/// Log an event to the event log
+pub fn log_event(conn: &Connection, action: &str, memory_id: Option<&str>, data: Option<&str>) -> Result<()> {
+    conn.execute(
+        "INSERT INTO events (timestamp, action, memory_id, data) VALUES (?1, ?2, ?3, ?4)",
+        params![now_timestamp(), action, memory_id, data],
+    )?;
     Ok(())
 }
 
@@ -102,6 +123,12 @@ pub fn add_memory(conn: &Connection, content: &str, scope: &str) -> Result<Strin
          VALUES (?1, ?2, ?3, 0, 0, ?4, 1.0)",
         params![id, content, scope, created_at],
     )?;
+
+    // Log ADD event
+    let data = format!(r#"{{"content":"{}","scope":"{}"}}"#,
+        content.replace('\\', "\\\\").replace('"', "\\\""),
+        scope.replace('\\', "\\\\").replace('"', "\\\""));
+    log_event(conn, "ADD", Some(&id), Some(&data))?;
 
     Ok(id)
 }
@@ -176,6 +203,9 @@ pub fn list_memories(conn: &Connection, scope: Option<&str>, gen: Option<u8>) ->
 
 pub fn remove_memory(conn: &Connection, id: &str) -> Result<bool> {
     let rows_affected = conn.execute("DELETE FROM memories WHERE id = ?1", params![id])?;
+    if rows_affected > 0 {
+        log_event(conn, "REMOVE", Some(id), None)?;
+    }
     Ok(rows_affected > 0)
 }
 
@@ -185,6 +215,9 @@ pub fn tap_memory(conn: &Connection, id: &str) -> Result<bool> {
         "UPDATE memories SET tap_count = tap_count + 1, last_tapped_at = ?1 WHERE id = ?2",
         params![now_timestamp(), id],
     )?;
+    if rows_affected > 0 {
+        log_event(conn, "TAP", Some(id), None)?;
+    }
     Ok(rows_affected > 0)
 }
 
@@ -203,6 +236,11 @@ pub fn tap_memories_by_match(conn: &Connection, pattern: &str) -> Result<Vec<Str
         "UPDATE memories SET tap_count = tap_count + 1, last_tapped_at = ?1 WHERE content LIKE ?2",
         params![timestamp, search],
     )?;
+
+    // Log TAP events for each matched memory
+    for id in &ids {
+        log_event(conn, "TAP", Some(id), None)?;
+    }
 
     Ok(ids)
 }
@@ -275,12 +313,14 @@ pub fn run_gc(
             expired.push((id.clone(), content, taps, reviews));
             if !dry_run {
                 conn.execute("DELETE FROM memories WHERE id = ?1", params![id])?;
+                log_event(conn, "EXPIRE", Some(&id), Some(&format!(r#"{{"reason":"low_engagement","ratio":{:.2}}}"#, ratio)))?;
             }
         } else if taps >= promote_threshold {
             // High engagement - promote to gen1
             promoted.push((id.clone(), content, taps, reviews));
             if !dry_run {
                 conn.execute("UPDATE memories SET generation = 1 WHERE id = ?1", params![id])?;
+                log_event(conn, "PROMOTE", Some(&id), Some(r#"{"from":0,"to":1}"#))?;
             }
         }
     }
@@ -299,6 +339,7 @@ pub fn run_gc(
         promoted.push((id.clone(), content, taps, reviews));
         if !dry_run {
             conn.execute("UPDATE memories SET generation = 2 WHERE id = ?1", params![id])?;
+            log_event(conn, "PROMOTE", Some(&id), Some(r#"{"from":1,"to":2}"#))?;
         }
     }
 
@@ -327,12 +368,15 @@ pub fn get_memories_for_init(conn: &Connection, scopes: &[String]) -> Result<Vec
         let rows = stmt.query([])?;
         let memories = collect_memories(rows)?;
 
-        // Increment review_count for all returned memories
+        // Increment review_count for all returned memories and log REVIEW events
         if !memories.is_empty() {
             conn.execute(
                 "UPDATE memories SET review_count = review_count + 1, last_reviewed_at = ?1",
                 params![timestamp],
             )?;
+            for m in &memories {
+                log_event(conn, "REVIEW", Some(&m.id), None)?;
+            }
         }
 
         return Ok(memories);
@@ -354,7 +398,7 @@ pub fn get_memories_for_init(conn: &Connection, scopes: &[String]) -> Result<Vec
     let rows = stmt.query(params.as_slice())?;
     let memories = collect_memories(rows)?;
 
-    // Increment review_count for returned memories
+    // Increment review_count for returned memories and log REVIEW events
     if !memories.is_empty() {
         // Offset placeholders by 1 since ?1 is the timestamp
         let update_placeholders: Vec<String> = (2..=scopes.len() + 1).map(|i| format!("?{}", i)).collect();
@@ -365,6 +409,10 @@ pub fn get_memories_for_init(conn: &Connection, scopes: &[String]) -> Result<Vec
         let mut update_params: Vec<&dyn rusqlite::ToSql> = vec![&timestamp];
         update_params.extend(scopes.iter().map(|s| s as &dyn rusqlite::ToSql));
         conn.execute(&update_sql, update_params.as_slice())?;
+
+        for m in &memories {
+            log_event(conn, "REVIEW", Some(&m.id), None)?;
+        }
     }
 
     Ok(memories)
