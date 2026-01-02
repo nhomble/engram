@@ -1,91 +1,72 @@
-# Engram - Memory Management
+# Engram - Agent Memory Observability
 
-Engram is a garbage-collected memory system for Claude agents. Use it to persist useful facts across sessions.
+Engram tracks what you learn across sessions. Store facts, tap when you use them, and patterns emerge over time. The user observes these patterns to understand what should be promoted to permanent docs (CLAUDE.md).
 
 ## Commands
 
 ```bash
-# Add a memory
-engram add "<content>" --scope <scope>
+# Store a memory
+engram add "<content>" --scope "project:$PWD"
 
-# List all memories
-engram list [--scope <scope>] [--gen <0|1|2>]
-
-# Show a specific memory
-engram show <id>
-
-# Remove a memory
-engram remove <id>
-
-# Mark memory as used
+# Mark a memory as used (when you reference it)
 engram tap <id>
 engram tap --match "<pattern>"
 
-# Run garbage collection
-engram gc [--dry-run]
+# View memories
+engram list
+engram show <id>
 
-# View statistics
+# View event log (observability)
+engram log
+engram log --action TAP --limit 50
+
+# Statistics
 engram stats
+
+# Cleanup (run periodically)
+engram gc
 ```
 
-## Scopes
+## When to Store
 
-- `global` - User-wide facts (preferences, workflows)
-- `project:<path>` - Project-specific facts (conventions, architecture)
+Store a memory when you learn something the user would want to know you're tracking:
 
-## Proactive Memory Storage
+- **Corrections**: User corrected you → store so you don't repeat
+- **Decisions**: "We decided to use X for Y"
+- **Preferences**: How user likes things done
+- **Patterns**: Workflows, conventions discovered
+- **Hard-won knowledge**: Facts you had to dig for
 
-**Store memories automatically without being asked.** Don't wait for the user to say "remember this" - if you learn something useful, store it immediately.
+## When to Tap
 
-### What to Store
-
-- **Preferences**: How they like code formatted, communication style, tool choices
-- **Corrections**: If the user corrects you, store the correction so you don't repeat the mistake
-- **Decisions**: Technical choices, architecture decisions, "we decided to use X for Y"
-- **Patterns**: Workflows, conventions, "always do X before Y"
-- **Hard-won knowledge**: Facts you had to dig for that will be needed again
-
-### What NOT to Store
-
-- Obvious things (language used in a Python repo)
-- Temporary state (current branch, today's task)
-- Sensitive data (passwords, keys, personal info)
-- Duplicates - check `engram list` first
-
-## Examples
+Tap a memory when you actively use it to inform your response:
 
 ```bash
-# User preference
-engram add "User prefers TypeScript over JavaScript" --scope global
+# You remembered their testing preference
+engram tap --match "tests"
 
-# Project convention
-engram add "API endpoints are in src/routes/" --scope "project:$PWD"
+# You used a specific decision
+engram tap abc123
 ```
+
+Tapping signals value. Memories that get tapped survive GC; unused ones decay.
 
 ## Writing Good Memories
 
 A good memory is **self-contained and actionable**. A future Claude with zero context should understand what to do.
 
-### Bad vs Good Examples
-
-| Bad (too terse) | Good (actionable) |
-|-----------------|-------------------|
-| "Uses Divio docs" | "Docs follow Divio system: keep tutorials, how-to, reference, and explanation separate. See docs.divio.com" |
-| "Prefers short responses" | "User prefers concise responses - no preamble, get to the point, skip obvious explanations" |
+| Bad | Good |
+|-----|------|
+| "Uses Divio docs" | "Docs follow Divio system: keep tutorials, how-to, reference, explanation separate" |
+| "Prefers short" | "User prefers concise responses - no preamble, skip obvious explanations" |
 | "Use pytest" | "Run tests with pytest. User expects tests to pass after every change." |
-| "API in routes" | "API endpoints live in src/routes/. Each file is one resource (users.py, posts.py)." |
 
-### The Test
-
-Before storing, ask: *"If I read this in 2 weeks with no memory of today, would I know what to do?"*
-
-If no, add more context.
+**The test**: If you read this in 2 weeks with no memory of today, would you know what to do?
 
 ## Guidelines
 
 - **Be proactive** - store useful facts without being asked
-- **Be self-contained** - include enough context to be actionable
-- **Include the "why" or "how"** - not just what, but what to do about it
-- **Stay under 280 characters** - like a tweet, but pack in the context
-- **Use appropriate scope** - global for user prefs, project for repo-specific
+- **Tap when you use** - this signals value to the user
+- **Stay under 280 chars** - concise but complete
+- **Default to project scope** - use `--scope "project:$PWD"`
 - **Check first** - run `engram list` to avoid duplicates
