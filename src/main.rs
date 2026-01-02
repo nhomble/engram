@@ -89,6 +89,12 @@ enum Commands {
         #[arg(long, short, default_value = "7")]
         days: u32,
     },
+    /// Output memories for context injection (used by hooks)
+    Init {
+        /// Scopes to include (can specify multiple)
+        #[arg(long)]
+        scope: Vec<String>,
+    },
 }
 
 fn truncate(s: &str, max_len: usize) -> String {
@@ -332,6 +338,77 @@ fn main() {
                     std::process::exit(1);
                 }
             }
+        }
+        Commands::Init { scope } => {
+            // Collect memories from specified scopes
+            let mut all_memories = Vec::new();
+
+            if scope.is_empty() {
+                // No scopes specified, get all
+                match db::list_memories(&conn, None) {
+                    Ok(memories) => all_memories = memories,
+                    Err(e) => {
+                        eprintln!("Failed to list memories: {}", e);
+                        std::process::exit(1);
+                    }
+                }
+            } else {
+                // Get memories for each scope
+                for s in &scope {
+                    match db::list_memories(&conn, Some(s)) {
+                        Ok(memories) => all_memories.extend(memories),
+                        Err(e) => {
+                            eprintln!("Failed to list memories for scope {}: {}", s, e);
+                            std::process::exit(1);
+                        }
+                    }
+                }
+            }
+
+            // Sort by tap count descending (most valuable first)
+            all_memories.sort_by(|a, b| b.tap_count.cmp(&a.tap_count));
+
+            // Output the context
+            print_init_context(&all_memories);
+        }
+    }
+}
+
+fn print_init_context(memories: &[db::Memory]) {
+    println!(r#"# Engram Memory Context
+
+Engram tracks what you learn across sessions. Memories that get tapped survive; unused ones decay.
+
+## Commands
+
+```bash
+# Store a memory (when you learn something useful)
+engram add "<content>" --scope "project:$PWD"
+
+# Tap a memory (when you use it to inform your response)
+engram tap <id>
+engram tap --match "<pattern>"
+```
+
+## When to Store
+
+- **Corrections**: User corrected you → store so you don't repeat
+- **Decisions**: "We decided to use X for Y"
+- **Preferences**: How user likes things done
+- **Patterns**: Workflows, conventions discovered
+
+## When to Tap
+
+Tap when you actively use a memory to inform your response. This signals value.
+"#);
+
+    if memories.is_empty() {
+        println!("\n## Memories\n\nNo memories yet.");
+    } else {
+        println!("\n## Memories ({} total)\n", memories.len());
+        for m in memories {
+            let short_id = &m.id[..8.min(m.id.len())];
+            println!("- [{}] ({} taps, {}) {}", short_id, m.tap_count, m.scope, m.content);
         }
     }
 }
