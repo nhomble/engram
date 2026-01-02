@@ -233,6 +233,7 @@ fn main() {
 - **Check memories first**: Run `engram list` before starting work
 - **Tap when you use**: If a memory informs your response, tap it
 - **Store what you learn**: Corrections, decisions, preferences, patterns
+- **Don't duplicate**: Don't add memories for things already in CLAUDE.md or other docs
 
 ### Session Start
 
@@ -242,7 +243,7 @@ engram list    # See what memories exist - TAP any you use
 
 ### During Session
 
-**Store** when you learn something:
+**Store** when you learn something new (not already documented):
 ```bash
 engram add "user prefers concise responses"
 engram add "run cargo test after changes"
@@ -253,6 +254,15 @@ engram add "run cargo test after changes"
 engram tap <id>
 engram tap --match "concise"   # tap by content
 ```
+
+### Promotion Flow
+
+When a memory proves valuable (many taps), promote it to permanent docs:
+
+1. Add the knowledge to CLAUDE.md or project docs
+2. Remove from engram: `engram remove <id>`
+
+Engram is short-term memory. CLAUDE.md is long-term. Promote what matters, let the rest fade.
 
 ### What Makes a Good Memory
 
