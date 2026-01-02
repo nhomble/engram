@@ -189,7 +189,15 @@ fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result
                     let short_id = if mem_id.len() > 8 { &mem_id[..8] } else { mem_id };
                     let data = e.data.as_deref().unwrap_or("");
                     let data_preview = truncate(data, 40);
-                    ListItem::new(format!("{} {:6} {} {}", time, e.action, short_id, data_preview))
+                    let text = format!("{} {:6} {} {}", time, e.action, short_id, data_preview);
+
+                    // Color code by memory_id
+                    let style = if mem_id != "-" {
+                        Style::default().fg(color_for_memory_id(mem_id))
+                    } else {
+                        Style::default()
+                    };
+                    ListItem::new(text).style(style)
                 })
                 .collect();
 
@@ -399,6 +407,22 @@ fn truncate(s: &str, max_len: usize) -> String {
     } else {
         format!("{}...", &s[..max_len - 3])
     }
+}
+
+/// Get a consistent color for a memory ID
+fn color_for_memory_id(id: &str) -> Color {
+    const COLORS: [Color; 6] = [
+        Color::Red,
+        Color::Green,
+        Color::Yellow,
+        Color::Blue,
+        Color::Magenta,
+        Color::Cyan,
+    ];
+
+    // Simple hash based on first few chars
+    let hash: usize = id.bytes().take(8).map(|b| b as usize).sum();
+    COLORS[hash % COLORS.len()]
 }
 
 /// Compute hourly activity counts from events for the last 24 hours
