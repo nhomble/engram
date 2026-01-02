@@ -37,4 +37,4 @@ You should see the available commands listed.
 
 ## Next steps
 
-- [Set up Claude Code hooks](install-hooks.md) to automatically load memories on session start
+- [Set up Claude Code](setup-claude-code.md) to use engram for memory observability
