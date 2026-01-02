@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand};
 
 mod db;
+mod tui;
 
 #[derive(Parser)]
 #[command(name = "engram")]
@@ -60,6 +61,8 @@ enum Commands {
     Init,
     /// Output prompt snippet for CLAUDE.md
     Prompt,
+    /// Launch interactive TUI
+    Ui,
 }
 
 fn truncate(s: &str, max_len: usize) -> String {
@@ -224,6 +227,12 @@ fn main() {
         }
         Commands::Prompt => {
             print!("{}", include_str!("AGENT_INSTRUCTIONS.md"));
+        }
+        Commands::Ui => {
+            if let Err(e) = tui::run() {
+                eprintln!("TUI error: {}", e);
+                std::process::exit(1);
+            }
         }
     }
 }
