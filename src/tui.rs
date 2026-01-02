@@ -9,7 +9,7 @@ use crossterm::{
 };
 use ratatui::{
     prelude::*,
-    widgets::{Bar, BarChart, BarGroup, Block, Borders, List, ListItem, ListState},
+    widgets::{Bar, BarChart, BarGroup, Block, Borders, Clear, List, ListItem, ListState, Paragraph, Wrap},
 };
 
 use crate::db;
@@ -45,6 +45,12 @@ impl ChartMode {
     }
 }
 
+/// Holds the full content for expansion
+struct ExpandedContent {
+    title: String,
+    content: String,
+}
+
 struct AppState {
     focused: Panel,
     memories_state: ListState,
@@ -52,6 +58,7 @@ struct AppState {
     memories_count: usize,
     events_count: usize,
     chart_mode: ChartMode,
+    expanded: Option<ExpandedContent>,
 }
 
 impl AppState {
@@ -67,6 +74,7 @@ impl AppState {
             memories_count: 0,
             events_count: 0,
             chart_mode: ChartMode::Both,
+            expanded: None,
         }
     }
 
@@ -124,6 +132,23 @@ fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result
     let mut state = AppState::new();
 
     loop {
+        // Fetch data outside of draw closure so we can use it for expansion
+        let (memories, events) = match db::open_db() {
+            Ok(conn) => {
+                let mems = db::list_memories(&conn).unwrap_or_default();
+                let evts = db::get_events(&conn, 100, None, None).unwrap_or_default();
+                (mems, evts)
+            }
+            Err(_) => (vec![], vec![]),
+        };
+
+        // Update counts
+        state.memories_count = memories.len();
+        state.events_count = events.len();
+
+        // Compute activity for chart
+        let activity = compute_hourly_activity(&events);
+
         terminal.draw(|frame| {
             let area = frame.area();
 
@@ -145,48 +170,28 @@ fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result
                 ])
                 .split(main_chunks[0]);
 
-            // Get data from DB
-            let (memories_items, events_items, activity): (Vec<ListItem>, Vec<ListItem>, Vec<(String, u64, u64)>) = match db::open_db() {
-                Ok(conn) => {
-                    let memories: Vec<ListItem> = match db::list_memories(&conn) {
-                        Ok(mems) => {
-                            mems.iter()
-                                .map(|m| {
-                                    let short_id = if m.id.len() > 8 { &m.id[..8] } else { &m.id };
-                                    let content = truncate(&m.content, 60);
-                                    ListItem::new(format!("[{}] taps:{:2} | {}", short_id, m.tap_count, content))
-                                })
-                                .collect()
-                        }
-                        Err(e) => vec![ListItem::new(format!("Error: {}", e))],
-                    };
+            // Build list items
+            let memories_items: Vec<ListItem> = memories
+                .iter()
+                .map(|m| {
+                    let short_id = if m.id.len() > 8 { &m.id[..8] } else { &m.id };
+                    let content = truncate(&m.content, 60);
+                    ListItem::new(format!("[{}] taps:{:2} | {}", short_id, m.tap_count, content))
+                })
+                .collect();
 
-                    let events_data = db::get_events(&conn, 100, None, None).unwrap_or_default();
-
-                    // Compute hourly activity from events
-                    let activity = compute_hourly_activity(&events_data);
-
-                    let events: Vec<ListItem> = events_data
-                        .iter()
-                        .take(50)
-                        .map(|e| {
-                            let time = format_timestamp(e.timestamp);
-                            let mem_id = e.memory_id.as_deref().unwrap_or("-");
-                            let short_id = if mem_id.len() > 8 { &mem_id[..8] } else { mem_id };
-                            let data = e.data.as_deref().unwrap_or("");
-                            let data_preview = truncate(data, 40);
-                            ListItem::new(format!("{} {:6} {} {}", time, e.action, short_id, data_preview))
-                        })
-                        .collect();
-
-                    (memories, events, activity)
-                }
-                Err(e) => (vec![ListItem::new(format!("DB Error: {}", e))], vec![], vec![]),
-            };
-
-            // Update counts for navigation
-            state.memories_count = memories_items.len();
-            state.events_count = events_items.len();
+            let events_items: Vec<ListItem> = events
+                .iter()
+                .take(50)
+                .map(|e| {
+                    let time = format_timestamp(e.timestamp);
+                    let mem_id = e.memory_id.as_deref().unwrap_or("-");
+                    let short_id = if mem_id.len() > 8 { &mem_id[..8] } else { mem_id };
+                    let data = e.data.as_deref().unwrap_or("");
+                    let data_preview = truncate(data, 40);
+                    ListItem::new(format!("{} {:6} {} {}", time, e.action, short_id, data_preview))
+                })
+                .collect();
 
             // Render memories panel
             let memories_title = if state.focused == Panel::Memories {
@@ -210,9 +215,9 @@ fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result
 
             // Render events panel
             let events_title = if state.focused == Panel::Events {
-                " Events [*] (q:quit Tab:switch j/k:nav) "
+                " Events [*] (q:quit Tab:switch j/k:nav Enter:expand) "
             } else {
-                " Events (q:quit Tab:switch j/k:nav) "
+                " Events (q:quit Tab:switch j/k:nav Enter:expand) "
             };
             let events_block = Block::default()
                 .title(events_title)
@@ -277,18 +282,79 @@ fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result
             // Render chart with groups
             let chart = bar_groups.iter().fold(chart, |c, g| c.data(g.clone()));
             frame.render_widget(chart, main_chunks[1]);
+
+            // Render expansion popup if active
+            if let Some(ref expanded) = state.expanded {
+                let popup_area = centered_rect(80, 60, area);
+                frame.render_widget(Clear, popup_area);
+                let popup = Paragraph::new(expanded.content.as_str())
+                    .block(
+                        Block::default()
+                            .title(format!(" {} (Esc to close) ", expanded.title))
+                            .borders(Borders::ALL)
+                            .border_style(Style::default().fg(Color::Cyan)),
+                    )
+                    .wrap(Wrap { trim: false });
+                frame.render_widget(popup, popup_area);
+            }
         })?;
 
         // Handle input (with timeout for refresh)
         if event::poll(Duration::from_secs(1))? {
             if let Event::Key(key) = event::read()? {
                 if key.kind == KeyEventKind::Press {
+                    // If popup is open, only handle Esc
+                    if state.expanded.is_some() {
+                        if key.code == KeyCode::Esc {
+                            state.expanded = None;
+                        }
+                        continue;
+                    }
+
                     match key.code {
                         KeyCode::Char('q') => break,
                         KeyCode::Char('j') | KeyCode::Down => state.move_down(),
                         KeyCode::Char('k') | KeyCode::Up => state.move_up(),
                         KeyCode::Char('c') => state.chart_mode = state.chart_mode.next(),
                         KeyCode::Tab => state.toggle_panel(),
+                        KeyCode::Enter => {
+                            // Expand selected item
+                            match state.focused {
+                                Panel::Memories => {
+                                    if let Some(idx) = state.memories_state.selected() {
+                                        if let Some(m) = memories.get(idx) {
+                                            state.expanded = Some(ExpandedContent {
+                                                title: format!("Memory {}", &m.id[..8.min(m.id.len())]),
+                                                content: format!(
+                                                    "ID: {}\nTaps: {}\nCreated: {}\n\n{}",
+                                                    m.id,
+                                                    m.tap_count,
+                                                    format_timestamp(m.created_at),
+                                                    m.content
+                                                ),
+                                            });
+                                        }
+                                    }
+                                }
+                                Panel::Events => {
+                                    if let Some(idx) = state.events_state.selected() {
+                                        if let Some(e) = events.get(idx) {
+                                            let mem_id = e.memory_id.as_deref().unwrap_or("-");
+                                            state.expanded = Some(ExpandedContent {
+                                                title: format!("{} Event", e.action),
+                                                content: format!(
+                                                    "Time: {}\nAction: {}\nMemory: {}\n\nData:\n{}",
+                                                    format_timestamp(e.timestamp),
+                                                    e.action,
+                                                    mem_id,
+                                                    e.data.as_deref().unwrap_or("(none)")
+                                                ),
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         _ => {}
                     }
                 }
@@ -297,6 +363,27 @@ fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result
     }
 
     Ok(())
+}
+
+/// Create a centered rectangle for popups
+fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
+    let popup_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage((100 - percent_y) / 2),
+            Constraint::Percentage(percent_y),
+            Constraint::Percentage((100 - percent_y) / 2),
+        ])
+        .split(r);
+
+    Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage((100 - percent_x) / 2),
+            Constraint::Percentage(percent_x),
+            Constraint::Percentage((100 - percent_x) / 2),
+        ])
+        .split(popup_layout[1])[1]
 }
 
 fn format_timestamp(ts: db::Timestamp) -> String {
