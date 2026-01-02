@@ -3,9 +3,12 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+/// Type alias for memory identifiers
+pub type MemoryId = String;
+
 #[derive(Debug)]
 pub struct Memory {
-    pub id: String,
+    pub id: MemoryId,
     pub content: String,
     pub tap_count: u32,
     pub last_tapped_at: Option<i64>,
@@ -81,7 +84,7 @@ pub fn log_event(conn: &Connection, action: &str, memory_id: Option<&str>, data:
 pub struct Event {
     pub timestamp: i64,
     pub action: String,
-    pub memory_id: Option<String>,
+    pub memory_id: Option<MemoryId>,
     pub data: Option<String>,
 }
 
@@ -128,7 +131,7 @@ fn row_to_event(row: &rusqlite::Row) -> rusqlite::Result<Event> {
     })
 }
 
-fn generate_id() -> String {
+fn generate_id() -> MemoryId {
     use std::collections::hash_map::RandomState;
     use std::hash::{BuildHasher, Hasher};
 
@@ -150,7 +153,7 @@ fn now_timestamp() -> i64 {
 
 // CRUD operations
 
-pub fn add_memory(conn: &Connection, content: &str) -> Result<String> {
+pub fn add_memory(conn: &Connection, content: &str) -> Result<MemoryId> {
     let id = generate_id();
     let created_at = now_timestamp();
 
@@ -253,7 +256,7 @@ pub fn tap_memory(conn: &Connection, id: &str) -> Result<bool> {
 }
 
 /// Tap memories matching a substring - returns list of tapped IDs
-pub fn tap_memories_by_match(conn: &Connection, pattern: &str) -> Result<Vec<String>> {
+pub fn tap_memories_by_match(conn: &Connection, pattern: &str) -> Result<Vec<MemoryId>> {
     let search = format!("%{}%", pattern);
     let timestamp = now_timestamp();
 
