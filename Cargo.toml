@@ -7,3 +7,4 @@ description = "Garbage-collected memory for Claude agents"
 [dependencies]
 clap = { version = "4", features = ["derive"] }
 rusqlite = { version = "0.32", features = ["bundled"] }
+chrono = "0.4"

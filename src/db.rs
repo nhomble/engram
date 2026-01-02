@@ -92,6 +92,59 @@ pub fn log_event(conn: &Connection, action: &str, memory_id: Option<&str>, data:
     Ok(())
 }
 
+#[derive(Debug)]
+pub struct Event {
+    pub id: i64,
+    pub timestamp: i64,
+    pub action: String,
+    pub memory_id: Option<String>,
+    pub data: Option<String>,
+}
+
+/// Get events from the event log
+pub fn get_events(
+    conn: &Connection,
+    limit: u32,
+    action: Option<&str>,
+    memory_id: Option<&str>,
+) -> Result<Vec<Event>> {
+    let mut sql = String::from(
+        "SELECT id, timestamp, action, memory_id, data FROM events WHERE 1=1"
+    );
+    let mut param_idx = 1;
+
+    if action.is_some() {
+        sql.push_str(&format!(" AND action = ?{}", param_idx));
+        param_idx += 1;
+    }
+    if memory_id.is_some() {
+        sql.push_str(&format!(" AND memory_id = ?{}", param_idx));
+    }
+
+    sql.push_str(&format!(" ORDER BY id DESC LIMIT {}", limit));
+
+    let mut stmt = conn.prepare(&sql)?;
+
+    let events = match (action, memory_id) {
+        (Some(a), Some(m)) => stmt.query_map(params![a, m], row_to_event)?,
+        (Some(a), None) => stmt.query_map(params![a], row_to_event)?,
+        (None, Some(m)) => stmt.query_map(params![m], row_to_event)?,
+        (None, None) => stmt.query_map([], row_to_event)?,
+    };
+
+    events.collect()
+}
+
+fn row_to_event(row: &rusqlite::Row) -> rusqlite::Result<Event> {
+    Ok(Event {
+        id: row.get(0)?,
+        timestamp: row.get(1)?,
+        action: row.get(2)?,
+        memory_id: row.get(3)?,
+        data: row.get(4)?,
+    })
+}
+
 fn generate_id() -> String {
     use std::collections::hash_map::RandomState;
     use std::hash::{BuildHasher, Hasher};
