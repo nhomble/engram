@@ -25,9 +25,6 @@ enum Commands {
         /// Filter by scope
         #[arg(long)]
         scope: Option<String>,
-        /// Filter by generation (0, 1, 2)
-        #[arg(long)]
-        gen: Option<u8>,
     },
     /// Show a specific memory
     Show {
@@ -62,9 +59,6 @@ enum Commands {
         /// Minimum taps to survive GC (memories with fewer taps are expired)
         #[arg(long, default_value = "1")]
         min_taps: u32,
-        /// Tap count to promote to next generation
-        #[arg(long, default_value = "3")]
-        promote_threshold: u32,
     },
     /// Show memory statistics
     Stats,
@@ -126,14 +120,14 @@ fn main() {
                 }
             }
         }
-        Commands::List { scope, gen } => {
-            match db::list_memories(&conn, scope.as_deref(), gen) {
+        Commands::List { scope } => {
+            match db::list_memories(&conn, scope.as_deref()) {
                 Ok(memories) => {
                     if memories.is_empty() {
                         println!("No memories found.");
                     } else {
                         for m in memories {
-                            println!("[{}] gen{} taps:{} {} | {}", m.id, m.generation, m.tap_count, m.scope, m.content);
+                            println!("[{}] taps:{} {} | {}", m.id, m.tap_count, m.scope, m.content);
                         }
                     }
                 }
@@ -149,7 +143,6 @@ fn main() {
                     println!("ID:         {}", m.id);
                     println!("Content:    {}", m.content);
                     println!("Scope:      {}", m.scope);
-                    println!("Generation: {}", m.generation);
                     println!("Taps:       {}", m.tap_count);
                     println!("Created:    {}", format_timestamp(m.created_at));
                     if let Some(tapped) = m.last_tapped_at {
@@ -231,25 +224,17 @@ fn main() {
                 }
             }
         }
-        Commands::Gc { dry_run, min_taps, promote_threshold } => {
-            match db::run_gc(&conn, min_taps, promote_threshold, dry_run) {
-                Ok(result) => {
+        Commands::Gc { dry_run, min_taps } => {
+            match db::run_gc(&conn, min_taps, dry_run) {
+                Ok(expired) => {
                     let prefix = if dry_run { "[DRY RUN] " } else { "" };
 
-                    if result.expired.is_empty() && result.promoted.is_empty() {
-                        println!("{}No changes.", prefix);
+                    if expired.is_empty() {
+                        println!("{}No memories expired.", prefix);
                     } else {
-                        if !result.expired.is_empty() {
-                            println!("{}Expired {} memory(ies):", prefix, result.expired.len());
-                            for (_id, content, taps) in &result.expired {
-                                println!("  - {} (taps:{})", truncate(content, 40), taps);
-                            }
-                        }
-                        if !result.promoted.is_empty() {
-                            println!("{}Promoted {} memory(ies):", prefix, result.promoted.len());
-                            for (_id, content, taps) in &result.promoted {
-                                println!("  + {} (taps:{})", truncate(content, 40), taps);
-                            }
+                        println!("{}Expired {} memory(ies):", prefix, expired.len());
+                        for (_id, content, taps) in &expired {
+                            println!("  - {} (taps:{})", truncate(content, 40), taps);
                         }
                     }
                 }
@@ -264,17 +249,10 @@ fn main() {
                 Ok(stats) => {
                     println!("=== Engram Stats ===");
                     println!("Total memories: {}", stats.total);
-                    println!();
-                    println!("By generation:");
-                    println!("  Gen 0 (ephemeral):  {}", stats.by_generation[0]);
-                    println!("  Gen 1 (surviving):  {}", stats.by_generation[1]);
-                    println!("  Gen 2 (permanent):  {}", stats.by_generation[2]);
-                    println!();
-                    println!("Taps:");
-                    println!("  Total taps:    {}", stats.total_taps);
-                    println!("  Never tapped:  {}", stats.never_tapped);
-                    println!();
+                    println!("Total taps:     {}", stats.total_taps);
+                    println!("Never tapped:   {}", stats.never_tapped);
                     if !stats.scopes.is_empty() {
+                        println!();
                         println!("By scope:");
                         for (scope, count) in &stats.scopes {
                             println!("  {}: {}", scope, count);
