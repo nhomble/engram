@@ -224,18 +224,57 @@ fn main() {
         }
         Commands::Prompt => {
             print!(r#"
-## Memory
+## Engram Memory Protocol
 
-Use engram to track what you learn. Memories that get tapped survive; unused ones fade.
+> Run `engram list` at session start to see existing memories
+
+### Core Rules
+
+- **Check memories first**: Run `engram list` before starting work
+- **Tap when you use**: If a memory informs your response, tap it
+- **Store what you learn**: Corrections, decisions, preferences, patterns
+
+### Session Start
 
 ```bash
-engram add "learned X"       # store a memory
-engram tap <id>              # signal you used it
-engram tap --match "pattern" # tap by content match
+engram list    # See what memories exist - TAP any you use
 ```
 
-When to store: corrections, decisions, preferences, patterns, hard-won knowledge.
-When to tap: whenever a memory informs your response.
+### During Session
+
+**Store** when you learn something:
+```bash
+engram add "user prefers concise responses"
+engram add "run cargo test after changes"
+```
+
+**Tap** when a memory informs your work:
+```bash
+engram tap <id>
+engram tap --match "concise"   # tap by content
+```
+
+### What Makes a Good Memory
+
+Self-contained and actionable. A future agent with no context should know what to do.
+
+| Bad | Good |
+|-----|------|
+| "Uses Divio" | "Docs follow Divio: tutorials, how-to, reference, explanation separate" |
+| "Prefers short" | "User wants concise responses, no preamble" |
+
+### Commands Reference
+
+```bash
+engram list              # show all memories (run at session start!)
+engram add "content"     # store new memory
+engram tap <id>          # signal you used a memory
+engram tap --match "X"   # tap memories matching X
+engram show <id>         # view memory details
+engram edit <id> "new"   # update content
+engram remove <id>       # delete memory
+engram log               # view event stream
+```
 "#);
         }
     }
