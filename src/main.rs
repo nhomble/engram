@@ -226,52 +226,65 @@ fn main() {
             print!(r#"
 ## Engram Memory Protocol
 
-> Run `engram list` at session start to see existing memories
-
-### Core Rules
-
-- **Check memories first**: Run `engram list` before starting work
-- **Tap when you use**: If a memory informs your response, tap it
-- **Store what you learn**: Corrections, decisions, preferences, patterns
-- **Don't duplicate**: Don't add memories for things already in CLAUDE.md or other docs
+Your context dies when the session ends. Memories are how insights survive for future sessions.
 
 ### Session Start
 
 ```bash
-engram list    # See what memories exist - TAP any you use
+engram list    # ALWAYS run this first - see what past sessions learned
 ```
 
-### During Session
-
-**Store** when you learn something new (not already documented):
-```bash
-engram add "user prefers concise responses"
-engram add "run cargo test after changes"
-```
-
-**Tap** when a memory informs your work:
+Review each memory. If it's relevant to your current task, tap it:
 ```bash
 engram tap <id>
-engram tap --match "concise"   # tap by content
 ```
+
+### When to Store (triggers)
+
+Store immediately when:
+- **User corrects you** → store the correction
+- **You discover a non-obvious workflow** → store the steps
+- **You hit an error and solve it** → store the fix
+- **You learn a project convention** → store the pattern
+- **User states a preference** → store it
+
+```bash
+engram add "always run cargo test before committing"
+engram add "user wants brief responses, no preamble"
+```
+
+### When to Tap
+
+Tap when a memory informs your work - even partially:
+```bash
+engram tap <id>
+engram tap --match "test"   # tap by content match
+```
+
+### When NOT to Store
+
+- Already in CLAUDE.md or project docs (don't duplicate)
+- Obvious things any agent would know
+- One-time facts unlikely to matter again
 
 ### Promotion Flow
 
-When a memory proves valuable (many taps), promote it to permanent docs:
+When a memory gets many taps, it's proven valuable. Promote it:
 
 1. Add the knowledge to CLAUDE.md or project docs
 2. Remove from engram: `engram remove <id>`
 
-Engram is short-term memory. CLAUDE.md is long-term. Promote what matters, let the rest fade.
+Engram = short-term memory. CLAUDE.md = long-term. Promote what matters.
 
 ### What Makes a Good Memory
 
-Self-contained and actionable. A future agent with no context should know what to do.
+Self-contained and actionable. A future agent with no context should understand.
 
 | Bad | Good |
 |-----|------|
 | "Uses Divio" | "Docs follow Divio: tutorials, how-to, reference, explanation separate" |
 | "Prefers short" | "User wants concise responses, no preamble" |
+| "Fixed the bug" | "OAuth callback must use HTTPS in production, not HTTP" |
 
 ### Commands Reference
 
