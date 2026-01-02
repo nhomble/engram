@@ -228,7 +228,7 @@ fn main() {
     }
 }
 
-fn format_timestamp(ts: i64) -> String {
+fn format_timestamp(ts: db::Timestamp) -> String {
     use std::time::{Duration, UNIX_EPOCH};
     let dt = UNIX_EPOCH + Duration::from_secs(ts as u64);
     let datetime: chrono::DateTime<chrono::Local> = dt.into();

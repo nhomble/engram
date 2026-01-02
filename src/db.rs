@@ -6,13 +6,16 @@ use std::time::{SystemTime, UNIX_EPOCH};
 /// Type alias for memory identifiers
 pub type MemoryId = String;
 
+/// Type alias for Unix timestamps (seconds since epoch)
+pub type Timestamp = i64;
+
 #[derive(Debug)]
 pub struct Memory {
     pub id: MemoryId,
     pub content: String,
     pub tap_count: u32,
-    pub last_tapped_at: Option<i64>,
-    pub created_at: i64,
+    pub last_tapped_at: Option<Timestamp>,
+    pub created_at: Timestamp,
 }
 
 pub fn get_db_path() -> PathBuf {
@@ -82,7 +85,7 @@ pub fn log_event(conn: &Connection, action: &str, memory_id: Option<&str>, data:
 
 #[derive(Debug)]
 pub struct Event {
-    pub timestamp: i64,
+    pub timestamp: Timestamp,
     pub action: String,
     pub memory_id: Option<MemoryId>,
     pub data: Option<String>,
@@ -144,11 +147,11 @@ fn generate_id() -> MemoryId {
     format!("{:x}{:x}", now as u64, random)
 }
 
-fn now_timestamp() -> i64 {
+fn now_timestamp() -> Timestamp {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
-        .as_secs() as i64
+        .as_secs() as Timestamp
 }
 
 // CRUD operations
