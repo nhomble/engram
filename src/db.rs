@@ -7,22 +7,20 @@ use std::time::{SystemTime, UNIX_EPOCH};
 pub struct Memory {
     pub id: String,
     pub content: String,
-    pub scope: String,
     pub tap_count: u32,
     pub last_tapped_at: Option<i64>,
     pub created_at: i64,
 }
 
 pub fn get_db_path() -> PathBuf {
-    // Allow override via environment variable (useful for local dev/testing)
+    // Allow override via environment variable (useful for testing)
     if let Ok(path) = std::env::var("ENGRAM_DB_PATH") {
         return PathBuf::from(path);
     }
 
-    // Default: ~/.engram/engram.db
-    let home = std::env::var("HOME").expect("HOME not set");
-    let data_dir = PathBuf::from(home).join(".engram");
-    fs::create_dir_all(&data_dir).expect("Failed to create data directory");
+    // Default: .engram/engram.db in current directory
+    let data_dir = PathBuf::from(".engram");
+    fs::create_dir_all(&data_dir).expect("Failed to create .engram directory");
     data_dir.join("engram.db")
 }
 
@@ -48,13 +46,10 @@ fn init_schema(conn: &Connection) -> Result<()> {
         CREATE TABLE IF NOT EXISTS memories (
             id TEXT PRIMARY KEY,
             content TEXT NOT NULL,
-            scope TEXT NOT NULL DEFAULT 'global',
             tap_count INTEGER NOT NULL DEFAULT 0,
             last_tapped_at INTEGER,
             created_at INTEGER NOT NULL
         );
-
-        CREATE INDEX IF NOT EXISTS idx_memories_scope ON memories(scope);
 
         CREATE TABLE IF NOT EXISTS events (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -155,20 +150,19 @@ fn now_timestamp() -> i64 {
 
 // CRUD operations
 
-pub fn add_memory(conn: &Connection, content: &str, scope: &str) -> Result<String> {
+pub fn add_memory(conn: &Connection, content: &str) -> Result<String> {
     let id = generate_id();
     let created_at = now_timestamp();
 
     conn.execute(
-        "INSERT INTO memories (id, content, scope, tap_count, created_at)
-         VALUES (?1, ?2, ?3, 0, ?4)",
-        params![id, content, scope, created_at],
+        "INSERT INTO memories (id, content, tap_count, created_at)
+         VALUES (?1, ?2, 0, ?3)",
+        params![id, content, created_at],
     )?;
 
     // Log ADD event
-    let data = format!(r#"{{"content":"{}","scope":"{}"}}"#,
-        content.replace('\\', "\\\\").replace('"', "\\\""),
-        scope.replace('\\', "\\\\").replace('"', "\\\""));
+    let data = format!(r#"{{"content":"{}"}}"#,
+        content.replace('\\', "\\\\").replace('"', "\\\""));
     log_event(conn, "ADD", Some(&id), Some(&data))?;
 
     Ok(id)
@@ -176,7 +170,7 @@ pub fn add_memory(conn: &Connection, content: &str, scope: &str) -> Result<Strin
 
 pub fn get_memory(conn: &Connection, id: &str) -> Result<Option<Memory>> {
     let mut stmt = conn.prepare(
-        "SELECT id, content, scope, tap_count, last_tapped_at, created_at
+        "SELECT id, content, tap_count, last_tapped_at, created_at
          FROM memories WHERE id = ?1"
     )?;
 
@@ -186,45 +180,31 @@ pub fn get_memory(conn: &Connection, id: &str) -> Result<Option<Memory>> {
         Ok(Some(Memory {
             id: row.get(0)?,
             content: row.get(1)?,
-            scope: row.get(2)?,
-            tap_count: row.get(3)?,
-            last_tapped_at: row.get(4)?,
-            created_at: row.get(5)?,
+            tap_count: row.get(2)?,
+            last_tapped_at: row.get(3)?,
+            created_at: row.get(4)?,
         }))
     } else {
         Ok(None)
     }
 }
 
-pub fn list_memories(conn: &Connection, scope: Option<&str>) -> Result<Vec<Memory>> {
-    let sql = if scope.is_some() {
-        "SELECT id, content, scope, tap_count, last_tapped_at, created_at
-         FROM memories WHERE scope = ?1
-         ORDER BY tap_count DESC, created_at DESC"
-    } else {
-        "SELECT id, content, scope, tap_count, last_tapped_at, created_at
+pub fn list_memories(conn: &Connection) -> Result<Vec<Memory>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, content, tap_count, last_tapped_at, created_at
          FROM memories
          ORDER BY tap_count DESC, created_at DESC"
-    };
+    )?;
 
-    let mut stmt = conn.prepare(sql)?;
-
-    let rows = if let Some(s) = scope {
-        stmt.query(params![s])?
-    } else {
-        stmt.query([])?
-    };
-
-    let memories = rows.mapped(|row| {
+    let memories = stmt.query_map([], |row| {
         Ok(Memory {
             id: row.get(0)?,
             content: row.get(1)?,
-            scope: row.get(2)?,
-            tap_count: row.get(3)?,
-            last_tapped_at: row.get(4)?,
-            created_at: row.get(5)?,
+            tap_count: row.get(2)?,
+            last_tapped_at: row.get(3)?,
+            created_at: row.get(4)?,
         })
-    }).collect::<Result<Vec<_>>>()?;
+    })?.collect::<Result<Vec<_>>>()?;
 
     Ok(memories)
 }
@@ -302,17 +282,10 @@ pub fn get_stats(conn: &Connection) -> Result<MemoryStats> {
     let total_taps: u32 = conn.query_row("SELECT COALESCE(SUM(tap_count), 0) FROM memories", [], |row| row.get(0))?;
     let never_tapped: u32 = conn.query_row("SELECT COUNT(*) FROM memories WHERE tap_count = 0", [], |row| row.get(0))?;
 
-    // Scopes breakdown
-    let mut stmt = conn.prepare("SELECT scope, COUNT(*) FROM memories GROUP BY scope ORDER BY COUNT(*) DESC")?;
-    let scopes: Vec<(String, u32)> = stmt.query_map([], |row| {
-        Ok((row.get(0)?, row.get(1)?))
-    })?.collect::<Result<Vec<_>>>()?;
-
     Ok(MemoryStats {
         total,
         total_taps,
         never_tapped,
-        scopes,
     })
 }
 
@@ -321,7 +294,6 @@ pub struct MemoryStats {
     pub total: u32,
     pub total_taps: u32,
     pub never_tapped: u32,
-    pub scopes: Vec<(String, u32)>,
 }
 
 /// Run garbage collection - expire memories with low tap counts
@@ -445,7 +417,7 @@ mod tests {
     fn test_add_and_get_memory() {
         let conn = open_test_db();
 
-        let id = add_memory(&conn, "test content", "global").expect("Failed to add memory");
+        let id = add_memory(&conn, "test content").expect("Failed to add memory");
         assert!(!id.is_empty());
 
         let memory = get_memory(&conn, &id).expect("Failed to get memory");
@@ -453,14 +425,13 @@ mod tests {
 
         let m = memory.unwrap();
         assert_eq!(m.content, "test content");
-        assert_eq!(m.scope, "global");
     }
 
     #[test]
     fn test_tap_memory() {
         let conn = open_test_db();
 
-        let id = add_memory(&conn, "tap test", "global").expect("Failed to add memory");
+        let id = add_memory(&conn, "tap test").expect("Failed to add memory");
 
         // Initial state
         let m = get_memory(&conn, &id).unwrap().unwrap();
@@ -480,7 +451,7 @@ mod tests {
     fn test_remove_memory() {
         let conn = open_test_db();
 
-        let id = add_memory(&conn, "to remove", "global").expect("Failed to add memory");
+        let id = add_memory(&conn, "to remove").expect("Failed to add memory");
 
         let removed = remove_memory(&conn, &id).expect("Failed to remove");
         assert!(removed);
@@ -493,7 +464,7 @@ mod tests {
     fn test_edit_memory() {
         let conn = open_test_db();
 
-        let id = add_memory(&conn, "original content", "global").expect("Failed to add memory");
+        let id = add_memory(&conn, "original content").expect("Failed to add memory");
 
         // Verify original
         let m = get_memory(&conn, &id).unwrap().unwrap();
@@ -516,18 +487,11 @@ mod tests {
     fn test_list_memories() {
         let conn = open_test_db();
 
-        // Add memories with different scopes
-        add_memory(&conn, "global memory", "global").unwrap();
-        add_memory(&conn, "project memory", "project:/test").unwrap();
+        add_memory(&conn, "first memory").unwrap();
+        add_memory(&conn, "second memory").unwrap();
 
-        // List all
-        let all = list_memories(&conn, None).unwrap();
+        let all = list_memories(&conn).unwrap();
         assert_eq!(all.len(), 2);
-
-        // Filter by scope
-        let global = list_memories(&conn, Some("global")).unwrap();
-        assert_eq!(global.len(), 1);
-        assert_eq!(global[0].content, "global memory");
     }
 
     #[test]
@@ -535,7 +499,7 @@ mod tests {
         let conn = open_test_db();
 
         // Add memory with 0 taps
-        let id = add_memory(&conn, "untapped memory", "global").unwrap();
+        let id = add_memory(&conn, "untapped memory").unwrap();
 
         // GC with min_taps=1 should expire it
         let expired = run_gc(&conn, 1, false).unwrap();

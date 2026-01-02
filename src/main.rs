@@ -16,16 +16,9 @@ enum Commands {
     Add {
         /// The memory content
         content: String,
-        /// Scope: global or project:<path>
-        #[arg(long, default_value = "global")]
-        scope: String,
     },
     /// List memories
-    List {
-        /// Filter by scope
-        #[arg(long)]
-        scope: Option<String>,
-    },
+    List,
     /// Show a specific memory
     Show {
         /// Memory ID
@@ -90,11 +83,7 @@ enum Commands {
         days: u32,
     },
     /// Output memories for context injection (used by hooks)
-    Init {
-        /// Scopes to include (can specify multiple)
-        #[arg(long)]
-        scope: Vec<String>,
-    },
+    Init,
 }
 
 fn truncate(s: &str, max_len: usize) -> String {
@@ -117,8 +106,8 @@ fn main() {
     };
 
     match cli.command {
-        Commands::Add { content, scope } => {
-            match db::add_memory(&conn, &content, &scope) {
+        Commands::Add { content } => {
+            match db::add_memory(&conn, &content) {
                 Ok(id) => println!("{}", id),
                 Err(e) => {
                     eprintln!("Failed to add memory: {}", e);
@@ -126,14 +115,14 @@ fn main() {
                 }
             }
         }
-        Commands::List { scope } => {
-            match db::list_memories(&conn, scope.as_deref()) {
+        Commands::List => {
+            match db::list_memories(&conn) {
                 Ok(memories) => {
                     if memories.is_empty() {
                         println!("No memories found.");
                     } else {
                         for m in memories {
-                            println!("[{}] taps:{} {} | {}", m.id, m.tap_count, m.scope, m.content);
+                            println!("[{}] taps:{} | {}", m.id, m.tap_count, m.content);
                         }
                     }
                 }
@@ -148,7 +137,6 @@ fn main() {
                 Ok(Some(m)) => {
                     println!("ID:         {}", m.id);
                     println!("Content:    {}", m.content);
-                    println!("Scope:      {}", m.scope);
                     println!("Taps:       {}", m.tap_count);
                     println!("Created:    {}", format_timestamp(m.created_at));
                     if let Some(tapped) = m.last_tapped_at {
@@ -257,13 +245,6 @@ fn main() {
                     println!("Total memories: {}", stats.total);
                     println!("Total taps:     {}", stats.total_taps);
                     println!("Never tapped:   {}", stats.never_tapped);
-                    if !stats.scopes.is_empty() {
-                        println!();
-                        println!("By scope:");
-                        for (scope, count) in &stats.scopes {
-                            println!("  {}: {}", scope, count);
-                        }
-                    }
                 }
                 Err(e) => {
                     eprintln!("Failed to get stats: {}", e);
@@ -339,37 +320,14 @@ fn main() {
                 }
             }
         }
-        Commands::Init { scope } => {
-            // Collect memories from specified scopes
-            let mut all_memories = Vec::new();
-
-            if scope.is_empty() {
-                // No scopes specified, get all
-                match db::list_memories(&conn, None) {
-                    Ok(memories) => all_memories = memories,
-                    Err(e) => {
-                        eprintln!("Failed to list memories: {}", e);
-                        std::process::exit(1);
-                    }
-                }
-            } else {
-                // Get memories for each scope
-                for s in &scope {
-                    match db::list_memories(&conn, Some(s)) {
-                        Ok(memories) => all_memories.extend(memories),
-                        Err(e) => {
-                            eprintln!("Failed to list memories for scope {}: {}", s, e);
-                            std::process::exit(1);
-                        }
-                    }
+        Commands::Init => {
+            match db::list_memories(&conn) {
+                Ok(memories) => print_init_context(&memories),
+                Err(e) => {
+                    eprintln!("Failed to list memories: {}", e);
+                    std::process::exit(1);
                 }
             }
-
-            // Sort by tap count descending (most valuable first)
-            all_memories.sort_by(|a, b| b.tap_count.cmp(&a.tap_count));
-
-            // Output the context
-            print_init_context(&all_memories);
         }
     }
 }
@@ -383,7 +341,7 @@ Engram tracks what you learn across sessions. Memories that get tapped survive; 
 
 ```bash
 # Store a memory (when you learn something useful)
-engram add "<content>" --scope "project:$PWD"
+engram add "<content>"
 
 # Tap a memory (when you use it to inform your response)
 engram tap <id>
@@ -408,7 +366,7 @@ Tap when you actively use a memory to inform your response. This signals value.
         println!("\n## Memories ({} total)\n", memories.len());
         for m in memories {
             let short_id = &m.id[..8.min(m.id.len())];
-            println!("- [{}] ({} taps, {}) {}", short_id, m.tap_count, m.scope, m.content);
+            println!("- [{}] ({} taps) {}", short_id, m.tap_count, m.content);
         }
     }
 }
