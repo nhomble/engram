@@ -54,29 +54,14 @@ enum Commands {
         #[arg(long = "match")]
         match_str: Option<String>,
     },
-    /// Initialize session - output memories for context injection
-    Init {
-        /// Scopes to include
-        #[arg(long)]
-        scope: Vec<String>,
-    },
-    /// Flush session data
-    Flush {
-        /// Session ID
-        #[arg(long)]
-        session: String,
-    },
     /// Run garbage collection
     Gc {
         /// Dry run - show what would be done
         #[arg(long)]
         dry_run: bool,
-        /// Minimum reviews before eligible for GC
-        #[arg(long, default_value = "5")]
-        min_reviews: u32,
-        /// Minimum tap/review ratio to survive (0.0-1.0)
-        #[arg(long, default_value = "0.2")]
-        min_ratio: f64,
+        /// Minimum taps to survive GC (memories with fewer taps are expired)
+        #[arg(long, default_value = "1")]
+        min_taps: u32,
         /// Tap count to promote to next generation
         #[arg(long, default_value = "3")]
         promote_threshold: u32,
@@ -166,17 +151,9 @@ fn main() {
                     println!("Scope:      {}", m.scope);
                     println!("Generation: {}", m.generation);
                     println!("Taps:       {}", m.tap_count);
-                    println!("Reviews:    {}", m.review_count);
-                    if m.review_count > 0 {
-                        let ratio = (m.tap_count as f64 / m.review_count as f64) * 100.0;
-                        println!("Tap ratio:  {:.0}%", ratio);
-                    }
-                    println!("Created:    {}", m.created_at);
+                    println!("Created:    {}", format_timestamp(m.created_at));
                     if let Some(tapped) = m.last_tapped_at {
-                        println!("Last tap:   {}", tapped);
-                    }
-                    if let Some(reviewed) = m.last_reviewed_at {
-                        println!("Last review: {}", reviewed);
+                        println!("Last tap:   {}", format_timestamp(tapped));
                     }
                 }
                 Ok(None) => {
@@ -254,43 +231,8 @@ fn main() {
                 }
             }
         }
-        Commands::Init { scope } => {
-            match db::get_memories_for_init(&conn, &scope) {
-                Ok(memories) => {
-                    // Always output context block with instructions
-                    println!("<engram-context>");
-                    println!("# Engram Memory System");
-                    println!();
-                    println!("When you learn something worth remembering about this project, store it:");
-                    println!("```bash");
-                    println!("ENGRAM_DB_PATH=./engram.db ./target/debug/engram add \"<fact>\" --scope \"project:$PWD\"");
-                    println!("```");
-                    println!();
-                    println!("Store: project conventions, user corrections, architecture decisions, gotchas.");
-                    println!("Skip: obvious things from code, sensitive info, duplicates of existing memories.");
-                    println!();
-                    if memories.is_empty() {
-                        println!("No memories yet for this project.");
-                    } else {
-                        println!("## Current Memories");
-                        for m in memories {
-                            // Include ID as HTML comment for potential tap tracking
-                            println!("<!-- {} -->- {}", m.id, m.content);
-                        }
-                    }
-                    println!("</engram-context>");
-                }
-                Err(e) => {
-                    eprintln!("Failed to get memories: {}", e);
-                    std::process::exit(1);
-                }
-            }
-        }
-        Commands::Flush { session } => {
-            println!("Flush not yet implemented: {}", session);
-        }
-        Commands::Gc { dry_run, min_reviews, min_ratio, promote_threshold } => {
-            match db::run_gc(&conn, min_reviews, min_ratio, promote_threshold, dry_run) {
+        Commands::Gc { dry_run, min_taps, promote_threshold } => {
+            match db::run_gc(&conn, min_taps, promote_threshold, dry_run) {
                 Ok(result) => {
                     let prefix = if dry_run { "[DRY RUN] " } else { "" };
 
@@ -299,15 +241,13 @@ fn main() {
                     } else {
                         if !result.expired.is_empty() {
                             println!("{}Expired {} memory(ies):", prefix, result.expired.len());
-                            for (id, content, taps, reviews) in &result.expired {
-                                let ratio = if *reviews > 0 { *taps as f64 / *reviews as f64 * 100.0 } else { 0.0 };
-                                println!("  - {} (taps:{} reviews:{} ratio:{:.0}%)",
-                                    truncate(content, 40), taps, reviews, ratio);
+                            for (_id, content, taps) in &result.expired {
+                                println!("  - {} (taps:{})", truncate(content, 40), taps);
                             }
                         }
                         if !result.promoted.is_empty() {
                             println!("{}Promoted {} memory(ies):", prefix, result.promoted.len());
-                            for (id, content, taps, reviews) in &result.promoted {
+                            for (_id, content, taps) in &result.promoted {
                                 println!("  + {} (taps:{})", truncate(content, 40), taps);
                             }
                         }
