@@ -81,6 +81,18 @@ enum Commands {
     },
     /// Show memory statistics
     Stats,
+    /// View event log
+    Log {
+        /// Number of events to show
+        #[arg(long, short, default_value = "20")]
+        limit: u32,
+        /// Filter by action (ADD, TAP, REMOVE, REVIEW, EXPIRE, PROMOTE)
+        #[arg(long)]
+        action: Option<String>,
+        /// Filter by memory ID
+        #[arg(long)]
+        memory: Option<String>,
+    },
 }
 
 fn truncate(s: &str, max_len: usize) -> String {
@@ -308,5 +320,36 @@ fn main() {
                 }
             }
         }
+        Commands::Log { limit, action, memory } => {
+            match db::get_events(&conn, limit, action.as_deref(), memory.as_deref()) {
+                Ok(events) => {
+                    if events.is_empty() {
+                        println!("No events found.");
+                    } else {
+                        for e in events {
+                            let time = format_timestamp(e.timestamp);
+                            let mem_id = e.memory_id.as_deref().unwrap_or("-");
+                            let short_id = if mem_id.len() > 8 { &mem_id[..8] } else { mem_id };
+                            print!("{} {:8} {}", time, e.action, short_id);
+                            if let Some(data) = &e.data {
+                                print!(" {}", truncate(data, 50));
+                            }
+                            println!();
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Failed to get events: {}", e);
+                    std::process::exit(1);
+                }
+            }
+        }
     }
+}
+
+fn format_timestamp(ts: i64) -> String {
+    use std::time::{Duration, UNIX_EPOCH};
+    let dt = UNIX_EPOCH + Duration::from_secs(ts as u64);
+    let datetime: chrono::DateTime<chrono::Local> = dt.into();
+    datetime.format("%Y-%m-%d %H:%M:%S").to_string()
 }
