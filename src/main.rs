@@ -34,10 +34,12 @@ enum Commands {
         /// Memory ID
         id: String,
     },
-    /// Edit a memory
+    /// Edit a memory's content
     Edit {
         /// Memory ID
         id: String,
+        /// New content
+        content: String,
     },
     /// Remove a memory
     Remove {
@@ -172,8 +174,18 @@ fn main() {
                 }
             }
         }
-        Commands::Edit { id } => {
-            println!("Edit not yet implemented: {}", id);
+        Commands::Edit { id, content } => {
+            match db::edit_memory(&conn, &id, &content) {
+                Ok(true) => println!("Updated: {}", id),
+                Ok(false) => {
+                    eprintln!("Memory not found: {}", id);
+                    std::process::exit(1);
+                }
+                Err(e) => {
+                    eprintln!("Failed to edit memory: {}", e);
+                    std::process::exit(1);
+                }
+            }
         }
         Commands::Remove { id } => {
             match db::remove_memory(&conn, &id) {

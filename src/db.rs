@@ -262,6 +262,29 @@ pub fn remove_memory(conn: &Connection, id: &str) -> Result<bool> {
     Ok(rows_affected > 0)
 }
 
+/// Edit a memory's content
+pub fn edit_memory(conn: &Connection, id: &str, new_content: &str) -> Result<bool> {
+    // Get old content for event log
+    let old_content: Option<String> = conn.query_row(
+        "SELECT content FROM memories WHERE id = ?1",
+        params![id],
+        |row| row.get(0),
+    ).ok();
+
+    let rows_affected = conn.execute(
+        "UPDATE memories SET content = ?1 WHERE id = ?2",
+        params![new_content, id],
+    )?;
+
+    if rows_affected > 0 {
+        let data = format!(r#"{{"old":"{}","new":"{}"}}"#,
+            old_content.unwrap_or_default().replace('\\', "\\\\").replace('"', "\\\""),
+            new_content.replace('\\', "\\\\").replace('"', "\\\""));
+        log_event(conn, "EDIT", Some(id), Some(&data))?;
+    }
+    Ok(rows_affected > 0)
+}
+
 /// Tap a memory by ID - increments tap_count and updates last_tapped_at
 pub fn tap_memory(conn: &Connection, id: &str) -> Result<bool> {
     let rows_affected = conn.execute(
@@ -557,5 +580,28 @@ mod tests {
 
         let memory = get_memory(&conn, &id).expect("Failed to get");
         assert!(memory.is_none());
+    }
+
+    #[test]
+    fn test_edit_memory() {
+        let conn = open_test_db();
+
+        let id = add_memory(&conn, "original content", "global").expect("Failed to add memory");
+
+        // Verify original
+        let m = get_memory(&conn, &id).unwrap().unwrap();
+        assert_eq!(m.content, "original content");
+
+        // Edit it
+        let edited = edit_memory(&conn, &id, "updated content").expect("Failed to edit");
+        assert!(edited);
+
+        // Verify update
+        let m = get_memory(&conn, &id).unwrap().unwrap();
+        assert_eq!(m.content, "updated content");
+
+        // Edit non-existent returns false
+        let edited = edit_memory(&conn, "nonexistent", "new").expect("Failed to edit");
+        assert!(!edited);
     }
 }
