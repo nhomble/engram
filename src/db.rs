@@ -296,30 +296,6 @@ pub struct MemoryStats {
     pub never_tapped: u32,
 }
 
-/// Run garbage collection - expire memories with low tap counts
-pub fn run_gc(conn: &Connection, min_taps: u32, dry_run: bool) -> Result<Vec<(String, String, u32)>> {
-    let mut expired = Vec::new();
-
-    // Expire memories with fewer than min_taps
-    let mut stmt = conn.prepare(
-        "SELECT id, content, tap_count FROM memories WHERE tap_count < ?1"
-    )?;
-
-    let to_expire: Vec<(String, String, u32)> = stmt.query_map(params![min_taps], |row| {
-        Ok((row.get(0)?, row.get(1)?, row.get(2)?))
-    })?.collect::<Result<Vec<_>>>()?;
-
-    for (id, content, taps) in to_expire {
-        expired.push((id.clone(), content, taps));
-        if !dry_run {
-            conn.execute("DELETE FROM memories WHERE id = ?1", params![id])?;
-            log_event(conn, "EXPIRE", Some(&id), Some(&format!(r#"{{"taps":{}}}"#, taps)))?;
-        }
-    }
-
-    Ok(expired)
-}
-
 /// Hot memories - most tapped in recent time window
 #[derive(Debug)]
 pub struct HotMemory {
@@ -492,21 +468,5 @@ mod tests {
 
         let all = list_memories(&conn).unwrap();
         assert_eq!(all.len(), 2);
-    }
-
-    #[test]
-    fn test_gc_expires_untapped() {
-        let conn = open_test_db();
-
-        // Add memory with 0 taps
-        let id = add_memory(&conn, "untapped memory").unwrap();
-
-        // GC with min_taps=1 should expire it
-        let expired = run_gc(&conn, 1, false).unwrap();
-        assert_eq!(expired.len(), 1);
-        assert_eq!(expired[0].0, id);
-
-        // Memory should be gone
-        assert!(get_memory(&conn, &id).unwrap().is_none());
     }
 }
