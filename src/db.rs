@@ -10,11 +10,8 @@ pub struct Memory {
     pub scope: String,
     pub generation: u8,
     pub tap_count: u32,
-    pub review_count: u32,
     pub last_tapped_at: Option<i64>,
-    pub last_reviewed_at: Option<i64>,
     pub created_at: i64,
-    pub confidence: f64,
 }
 
 pub fn get_db_path() -> PathBuf {
@@ -55,11 +52,8 @@ fn init_schema(conn: &Connection) -> Result<()> {
             scope TEXT NOT NULL DEFAULT 'global',
             generation INTEGER NOT NULL DEFAULT 0,
             tap_count INTEGER NOT NULL DEFAULT 0,
-            review_count INTEGER NOT NULL DEFAULT 0,
             last_tapped_at INTEGER,
-            last_reviewed_at INTEGER,
-            created_at INTEGER NOT NULL,
-            confidence REAL NOT NULL DEFAULT 1.0
+            created_at INTEGER NOT NULL
         );
 
         CREATE INDEX IF NOT EXISTS idx_memories_scope ON memories(scope);
@@ -79,10 +73,6 @@ fn init_schema(conn: &Connection) -> Result<()> {
         "
     )?;
 
-    // Migration: add review_count and last_reviewed_at if missing
-    let _ = conn.execute("ALTER TABLE memories ADD COLUMN review_count INTEGER NOT NULL DEFAULT 0", []);
-    let _ = conn.execute("ALTER TABLE memories ADD COLUMN last_reviewed_at INTEGER", []);
-
     Ok(())
 }
 
@@ -97,7 +87,6 @@ pub fn log_event(conn: &Connection, action: &str, memory_id: Option<&str>, data:
 
 #[derive(Debug)]
 pub struct Event {
-    pub id: i64,
     pub timestamp: i64,
     pub action: String,
     pub memory_id: Option<String>,
@@ -112,7 +101,7 @@ pub fn get_events(
     memory_id: Option<&str>,
 ) -> Result<Vec<Event>> {
     let mut sql = String::from(
-        "SELECT id, timestamp, action, memory_id, data FROM events WHERE 1=1"
+        "SELECT timestamp, action, memory_id, data FROM events WHERE 1=1"
     );
     let mut param_idx = 1;
 
@@ -140,11 +129,10 @@ pub fn get_events(
 
 fn row_to_event(row: &rusqlite::Row) -> rusqlite::Result<Event> {
     Ok(Event {
-        id: row.get(0)?,
-        timestamp: row.get(1)?,
-        action: row.get(2)?,
-        memory_id: row.get(3)?,
-        data: row.get(4)?,
+        timestamp: row.get(0)?,
+        action: row.get(1)?,
+        memory_id: row.get(2)?,
+        data: row.get(3)?,
     })
 }
 
@@ -175,8 +163,8 @@ pub fn add_memory(conn: &Connection, content: &str, scope: &str) -> Result<Strin
     let created_at = now_timestamp();
 
     conn.execute(
-        "INSERT INTO memories (id, content, scope, generation, tap_count, created_at, confidence)
-         VALUES (?1, ?2, ?3, 0, 0, ?4, 1.0)",
+        "INSERT INTO memories (id, content, scope, generation, tap_count, created_at)
+         VALUES (?1, ?2, ?3, 0, 0, ?4)",
         params![id, content, scope, created_at],
     )?;
 
@@ -191,7 +179,7 @@ pub fn add_memory(conn: &Connection, content: &str, scope: &str) -> Result<Strin
 
 pub fn get_memory(conn: &Connection, id: &str) -> Result<Option<Memory>> {
     let mut stmt = conn.prepare(
-        "SELECT id, content, scope, generation, tap_count, review_count, last_tapped_at, last_reviewed_at, created_at, confidence
+        "SELECT id, content, scope, generation, tap_count, last_tapped_at, created_at
          FROM memories WHERE id = ?1"
     )?;
 
@@ -204,11 +192,8 @@ pub fn get_memory(conn: &Connection, id: &str) -> Result<Option<Memory>> {
             scope: row.get(2)?,
             generation: row.get(3)?,
             tap_count: row.get(4)?,
-            review_count: row.get(5)?,
-            last_tapped_at: row.get(6)?,
-            last_reviewed_at: row.get(7)?,
-            created_at: row.get(8)?,
-            confidence: row.get(9)?,
+            last_tapped_at: row.get(5)?,
+            created_at: row.get(6)?,
         }))
     } else {
         Ok(None)
@@ -217,7 +202,7 @@ pub fn get_memory(conn: &Connection, id: &str) -> Result<Option<Memory>> {
 
 pub fn list_memories(conn: &Connection, scope: Option<&str>, gen: Option<u8>) -> Result<Vec<Memory>> {
     let mut sql = String::from(
-        "SELECT id, content, scope, generation, tap_count, review_count, last_tapped_at, last_reviewed_at, created_at, confidence
+        "SELECT id, content, scope, generation, tap_count, last_tapped_at, created_at
          FROM memories WHERE 1=1"
     );
 
@@ -246,11 +231,8 @@ pub fn list_memories(conn: &Connection, scope: Option<&str>, gen: Option<u8>) ->
             scope: row.get(2)?,
             generation: row.get(3)?,
             tap_count: row.get(4)?,
-            review_count: row.get(5)?,
-            last_tapped_at: row.get(6)?,
-            last_reviewed_at: row.get(7)?,
-            created_at: row.get(8)?,
-            confidence: row.get(9)?,
+            last_tapped_at: row.get(5)?,
+            created_at: row.get(6)?,
         })
     }).collect::<Result<Vec<_>>>()?;
 
@@ -364,58 +346,61 @@ pub struct MemoryStats {
 /// Returns (expired_ids, promoted_ids)
 pub fn run_gc(
     conn: &Connection,
-    min_reviews: u32,
-    min_ratio: f64,
+    min_taps: u32,
     promote_threshold: u32,
     dry_run: bool,
 ) -> Result<GcResult> {
     let mut expired = Vec::new();
     let mut promoted = Vec::new();
 
-    // Find gen0 memories eligible for expiry:
-    // - reviewed at least min_reviews times
-    // - tap ratio below min_ratio
+    // Expire gen0 memories with fewer than min_taps
     let mut stmt = conn.prepare(
-        "SELECT id, content, tap_count, review_count FROM memories
-         WHERE generation = 0 AND review_count >= ?1"
+        "SELECT id, content, tap_count FROM memories
+         WHERE generation = 0 AND tap_count < ?1"
     )?;
 
-    let candidates: Vec<(String, String, u32, u32)> = stmt.query_map(params![min_reviews], |row| {
-        Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+    let to_expire: Vec<(String, String, u32)> = stmt.query_map(params![min_taps], |row| {
+        Ok((row.get(0)?, row.get(1)?, row.get(2)?))
     })?.collect::<Result<Vec<_>>>()?;
 
-    for (id, content, taps, reviews) in candidates {
-        let ratio = if reviews > 0 { taps as f64 / reviews as f64 } else { 0.0 };
-
-        if ratio < min_ratio {
-            // Low engagement - expire
-            expired.push((id.clone(), content, taps, reviews));
-            if !dry_run {
-                conn.execute("DELETE FROM memories WHERE id = ?1", params![id])?;
-                log_event(conn, "EXPIRE", Some(&id), Some(&format!(r#"{{"reason":"low_engagement","ratio":{:.2}}}"#, ratio)))?;
-            }
-        } else if taps >= promote_threshold {
-            // High engagement - promote to gen1
-            promoted.push((id.clone(), content, taps, reviews));
-            if !dry_run {
-                conn.execute("UPDATE memories SET generation = 1 WHERE id = ?1", params![id])?;
-                log_event(conn, "PROMOTE", Some(&id), Some(r#"{"from":0,"to":1}"#))?;
-            }
+    for (id, content, taps) in to_expire {
+        expired.push((id.clone(), content, taps));
+        if !dry_run {
+            conn.execute("DELETE FROM memories WHERE id = ?1", params![id])?;
+            log_event(conn, "EXPIRE", Some(&id), Some(&format!(r#"{{"reason":"low_taps","taps":{}}}"#, taps)))?;
         }
     }
 
-    // Promote gen1 to gen2 if they continue to be tapped
+    // Promote gen0 memories with enough taps to gen1
     let mut stmt = conn.prepare(
-        "SELECT id, content, tap_count, review_count FROM memories
+        "SELECT id, content, tap_count FROM memories
+         WHERE generation = 0 AND tap_count >= ?1"
+    )?;
+
+    let to_promote: Vec<(String, String, u32)> = stmt.query_map(params![promote_threshold], |row| {
+        Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+    })?.collect::<Result<Vec<_>>>()?;
+
+    for (id, content, taps) in to_promote {
+        promoted.push((id.clone(), content, taps));
+        if !dry_run {
+            conn.execute("UPDATE memories SET generation = 1 WHERE id = ?1", params![id])?;
+            log_event(conn, "PROMOTE", Some(&id), Some(r#"{"from":0,"to":1}"#))?;
+        }
+    }
+
+    // Promote gen1 to gen2 if they have enough taps
+    let mut stmt = conn.prepare(
+        "SELECT id, content, tap_count FROM memories
          WHERE generation = 1 AND tap_count >= ?1"
     )?;
 
-    let gen1_promote: Vec<(String, String, u32, u32)> = stmt.query_map(params![promote_threshold * 2], |row| {
-        Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+    let gen1_promote: Vec<(String, String, u32)> = stmt.query_map(params![promote_threshold * 2], |row| {
+        Ok((row.get(0)?, row.get(1)?, row.get(2)?))
     })?.collect::<Result<Vec<_>>>()?;
 
-    for (id, content, taps, reviews) in gen1_promote {
-        promoted.push((id.clone(), content, taps, reviews));
+    for (id, content, taps) in gen1_promote {
+        promoted.push((id.clone(), content, taps));
         if !dry_run {
             conn.execute("UPDATE memories SET generation = 2 WHERE id = ?1", params![id])?;
             log_event(conn, "PROMOTE", Some(&id), Some(r#"{"from":1,"to":2}"#))?;
@@ -427,93 +412,8 @@ pub fn run_gc(
 
 #[derive(Debug)]
 pub struct GcResult {
-    pub expired: Vec<(String, String, u32, u32)>,  // id, content, taps, reviews
-    pub promoted: Vec<(String, String, u32, u32)>,
-}
-
-/// Get memories for session initialization, filtered by scopes and ordered by generation (highest first)
-/// Also increments review_count for returned memories
-pub fn get_memories_for_init(conn: &Connection, scopes: &[String]) -> Result<Vec<Memory>> {
-    let timestamp = now_timestamp();
-
-    if scopes.is_empty() {
-        // No scopes specified, return all memories ordered by generation desc
-        let mut stmt = conn.prepare(
-            "SELECT id, content, scope, generation, tap_count, review_count, last_tapped_at, last_reviewed_at, created_at, confidence
-             FROM memories
-             ORDER BY generation DESC, tap_count DESC, created_at DESC"
-        )?;
-
-        let rows = stmt.query([])?;
-        let memories = collect_memories(rows)?;
-
-        // Increment review_count for all returned memories and log REVIEW events
-        if !memories.is_empty() {
-            conn.execute(
-                "UPDATE memories SET review_count = review_count + 1, last_reviewed_at = ?1",
-                params![timestamp],
-            )?;
-            for m in &memories {
-                log_event(conn, "REVIEW", Some(&m.id), None)?;
-            }
-        }
-
-        return Ok(memories);
-    }
-
-    // Build query with scope filter
-    let placeholders: Vec<String> = (1..=scopes.len()).map(|i| format!("?{}", i)).collect();
-    let sql = format!(
-        "SELECT id, content, scope, generation, tap_count, review_count, last_tapped_at, last_reviewed_at, created_at, confidence
-         FROM memories
-         WHERE scope IN ({})
-         ORDER BY generation DESC, tap_count DESC, created_at DESC",
-        placeholders.join(", ")
-    );
-
-    let mut stmt = conn.prepare(&sql)?;
-
-    let params: Vec<&dyn rusqlite::ToSql> = scopes.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
-    let rows = stmt.query(params.as_slice())?;
-    let memories = collect_memories(rows)?;
-
-    // Increment review_count for returned memories and log REVIEW events
-    if !memories.is_empty() {
-        // Offset placeholders by 1 since ?1 is the timestamp
-        let update_placeholders: Vec<String> = (2..=scopes.len() + 1).map(|i| format!("?{}", i)).collect();
-        let update_sql = format!(
-            "UPDATE memories SET review_count = review_count + 1, last_reviewed_at = ?1 WHERE scope IN ({})",
-            update_placeholders.join(", ")
-        );
-        let mut update_params: Vec<&dyn rusqlite::ToSql> = vec![&timestamp];
-        update_params.extend(scopes.iter().map(|s| s as &dyn rusqlite::ToSql));
-        conn.execute(&update_sql, update_params.as_slice())?;
-
-        for m in &memories {
-            log_event(conn, "REVIEW", Some(&m.id), None)?;
-        }
-    }
-
-    Ok(memories)
-}
-
-fn collect_memories(mut rows: rusqlite::Rows) -> Result<Vec<Memory>> {
-    let mut memories = Vec::new();
-    while let Some(row) = rows.next()? {
-        memories.push(Memory {
-            id: row.get(0)?,
-            content: row.get(1)?,
-            scope: row.get(2)?,
-            generation: row.get(3)?,
-            tap_count: row.get(4)?,
-            review_count: row.get(5)?,
-            last_tapped_at: row.get(6)?,
-            last_reviewed_at: row.get(7)?,
-            created_at: row.get(8)?,
-            confidence: row.get(9)?,
-        });
-    }
-    Ok(memories)
+    pub expired: Vec<(String, String, u32)>,  // id, content, taps
+    pub promoted: Vec<(String, String, u32)>,
 }
 
 /// Hot memories - most tapped in recent time window
@@ -679,5 +579,58 @@ mod tests {
         // Edit non-existent returns false
         let edited = edit_memory(&conn, "nonexistent", "new").expect("Failed to edit");
         assert!(!edited);
+    }
+
+    #[test]
+    fn test_list_memories() {
+        let conn = open_test_db();
+
+        // Add memories with different scopes
+        add_memory(&conn, "global memory", "global").unwrap();
+        add_memory(&conn, "project memory", "project:/test").unwrap();
+
+        // List all
+        let all = list_memories(&conn, None, None).unwrap();
+        assert_eq!(all.len(), 2);
+
+        // Filter by scope
+        let global = list_memories(&conn, Some("global"), None).unwrap();
+        assert_eq!(global.len(), 1);
+        assert_eq!(global[0].content, "global memory");
+    }
+
+    #[test]
+    fn test_gc_expires_untapped() {
+        let conn = open_test_db();
+
+        // Add memory with 0 taps
+        let id = add_memory(&conn, "untapped memory", "global").unwrap();
+
+        // GC with min_taps=1 should expire it
+        let result = run_gc(&conn, 1, 3, false).unwrap();
+        assert_eq!(result.expired.len(), 1);
+        assert_eq!(result.expired[0].0, id);
+
+        // Memory should be gone
+        assert!(get_memory(&conn, &id).unwrap().is_none());
+    }
+
+    #[test]
+    fn test_gc_promotes_tapped() {
+        let conn = open_test_db();
+
+        // Add memory and tap it 3 times
+        let id = add_memory(&conn, "tapped memory", "global").unwrap();
+        tap_memory(&conn, &id).unwrap();
+        tap_memory(&conn, &id).unwrap();
+        tap_memory(&conn, &id).unwrap();
+
+        // GC with promote_threshold=3 should promote to gen1
+        let result = run_gc(&conn, 1, 3, false).unwrap();
+        assert_eq!(result.promoted.len(), 1);
+
+        // Memory should be gen1 now
+        let m = get_memory(&conn, &id).unwrap().unwrap();
+        assert_eq!(m.generation, 1);
     }
 }
