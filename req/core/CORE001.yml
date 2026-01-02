@@ -7,6 +7,6 @@ links:
 - REQ001: KlyTnIkxqNYASNjtrNzEc6FI2YuaugdxaMKNQlHaAHw=
 normative: true
 ref: ''
-reviewed: 3DntkHZiT4TNad6FMHKV7UdXCOH6y_ofYaP_RStJTYw=
+reviewed: OL21KcLN0qD1Ynz7E23gdtuUA8P-PjGrk5HmPvNjv2M=
 text: |
-  On session start, relevant memories are loaded into the agent's context.
+  Agent runs `engram list` at session start to review available memories.

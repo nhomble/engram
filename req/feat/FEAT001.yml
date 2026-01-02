@@ -1,12 +1,12 @@
-active: false
+active: true
 derived: false
 header: |
   Init Command
 level: 1.0
 links:
-- CORE001: MJxTjhv8KTBnVYWjdB86f8zzYaEEw2a_n4IgQ2wlDUY=
+- CORE001: sJ59OeceAMnMRs9c-ETPODDauqnyBzuMcKRhAwMk7e8=
 normative: true
 ref: ''
-reviewed: XQpfjyeGlO463l69OlD9-2Fain4DAqbXT04ZlaeRwdQ=
+reviewed: gQXglILLo8_ZUvKxTwxUBnQhjOfXy72_MOjWKsXnDaw=
 text: |
-  `engram init` command outputs memories for context injection.
+  `engram init` command creates the .engram/ directory for the workspace.

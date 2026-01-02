@@ -7,6 +7,6 @@ links:
 - REQ001: KlyTnIkxqNYASNjtrNzEc6FI2YuaugdxaMKNQlHaAHw=
 normative: true
 ref: ''
-reviewed: TgpZV2TX5nYio6E6hB9YKeysape6pdOxz7E3pTADRYQ=
+reviewed: V4FzBVV14PEJqnoWJhzH13wjWEmxnqnRLs18UyDzJ54=
 text: |
-  Over time, unused memories fade and useful memories persist.
+  Tap count signals memory value. User decides what to keep or remove.

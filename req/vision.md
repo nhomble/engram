@@ -21,40 +21,36 @@ Every memory operation is logged as an immutable event:
 - `ADD` - memory created
 - `TAP` - memory used
 - `REMOVE` - memory deleted
-- `REVIEW` - memory shown to agent
-- `EXPIRE` - memory GC'd
-- `PROMOTE` - memory promoted to higher generation
+- `EDIT` - memory modified
 
 This event log enables projections and analytics.
 
 ### The Workflow
 
 1. **Agent stores memories** during sessions (facts, decisions, patterns)
-2. **You observe** what's being stored and used via `engram log`, `engram stats`
-3. **Patterns emerge** - some memories get tapped repeatedly, others never
-4. **You promote** valuable patterns to CLAUDE.md (permanent long-term memory)
-5. **GC cleans up** low-engagement memories automatically
+2. **Agent taps memories** when they inform responses
+3. **You observe** what's being stored and used via `engram log`
+4. **Patterns emerge** - some memories get tapped repeatedly, others never
+5. **You promote** valuable patterns to CLAUDE.md (permanent long-term memory)
+6. **You remove** memories that have been promoted or are no longer useful
 
 Engram is the "short-term memory" that informs what goes into "long-term memory" (your docs).
 
-### Generational Model
+### Tap-Based Value Signal
 
-Memories have generations based on engagement:
-- **Gen0**: New, untested. Expires if not tapped.
-- **Gen1**: Survived multiple taps. Candidate for CLAUDE.md.
-- **Gen2**: Heavily used. Definitely belongs in permanent docs.
+Memories are ranked by tap_count. More taps = more valuable. This is the only metric that matters:
+- 0 taps: Never used, candidate for removal
+- Many taps: Frequently useful, candidate for promotion to CLAUDE.md
 
-### Scoping
+### Per-Workspace Storage
 
-Memories are scoped to projects:
-- `project:<path>` — project-specific facts (default)
-- `global` — rare, truly universal preferences
+Each workspace has its own `.engram/` directory with its own memories. No global storage, no scoping complexity.
 
 ## Architecture
 
 ### Storage
 
-SQLite with WAL mode. Location: `~/.engram/engram.db`
+SQLite with WAL mode. Location: `.engram/engram.db` in current workspace.
 
 Two tables:
 - `memories` - current state (projection)
@@ -64,44 +60,37 @@ Two tables:
 
 ```bash
 # Memory operations
-engram add "<content>" --scope "project:$PWD"
-engram list [--scope=<scope>] [--gen=<0|1|2>]
+engram add "<content>"
+engram list
 engram show <id>
+engram edit <id> "<new content>"
 engram remove <id>
 engram tap <id>
+engram tap --match "<substring>"
 
 # Observability
 engram log [--action=<action>] [--limit=<n>]
-engram stats
 
-# Maintenance
-engram gc [--dry-run]
+# Setup
+engram init          # Create .engram/ directory
+engram prompt        # Output protocol snippet for CLAUDE.md
 ```
 
-### Claude Hooks Integration
+### Agent Integration
 
-Session start hook runs GC and loads memories:
-```bash
-engram gc 2>/dev/null
-engram init --scope global --scope "project:$PWD"
-```
-
-### Projections (Future)
-
-SQL views over the event log:
-- Hot memories (most tapped recently)
-- Activity timeline
-- Engagement ratios
-- Decay candidates
+Add protocol to CLAUDE.md via `engram prompt >> CLAUDE.md`. The agent then:
+1. Runs `engram list` at session start
+2. Taps memories when they inform responses
+3. Stores new learnings as memories
+4. Promotes valuable memories to CLAUDE.md, removes from engram
 
 ## Implementation Status
 
-- [x] Core CRUD (add, list, show, remove)
+- [x] Core CRUD (add, list, show, edit, remove)
 - [x] Tap recording
-- [x] GC with ratio-based expiry
 - [x] Event log
 - [x] `engram log` command
-- [x] Projections (`engram hot`, `engram activity`)
+- [x] `engram prompt` with full protocol
 - [ ] TUI for real-time observability
 
 ## Future Vision
@@ -117,3 +106,4 @@ A TUI (like lazygit) for real-time observability:
 - Context injection optimization (use CLAUDE.md for that)
 - Sync across machines (separate problem)
 - Encryption at rest
+- Automatic GC (user decides what lives/dies)
