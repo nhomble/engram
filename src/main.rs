@@ -93,6 +93,21 @@ enum Commands {
         #[arg(long)]
         memory: Option<String>,
     },
+    /// Show hot memories (most tapped recently)
+    Hot {
+        /// Time window in hours (default: 24)
+        #[arg(long, short, default_value = "24")]
+        hours: u32,
+        /// Number of memories to show
+        #[arg(long, short, default_value = "10")]
+        limit: u32,
+    },
+    /// Show activity summary by day
+    Activity {
+        /// Number of days to show (default: 7)
+        #[arg(long, short, default_value = "7")]
+        days: u32,
+    },
 }
 
 fn truncate(s: &str, max_len: usize) -> String {
@@ -340,6 +355,50 @@ fn main() {
                 }
                 Err(e) => {
                     eprintln!("Failed to get events: {}", e);
+                    std::process::exit(1);
+                }
+            }
+        }
+        Commands::Hot { hours, limit } => {
+            let window_secs = hours as i64 * 3600;
+            match db::get_hot_memories(&conn, window_secs, limit) {
+                Ok(memories) => {
+                    if memories.is_empty() {
+                        println!("No hot memories in the last {} hours.", hours);
+                    } else {
+                        println!("=== Hot Memories (last {} hours) ===", hours);
+                        for m in memories {
+                            println!("[{}] {} taps ({}x recent) | {}",
+                                &m.id[..8.min(m.id.len())],
+                                m.total_taps,
+                                m.recent_taps,
+                                truncate(&m.content, 50));
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Failed to get hot memories: {}", e);
+                    std::process::exit(1);
+                }
+            }
+        }
+        Commands::Activity { days } => {
+            match db::get_activity_by_day(&conn, days) {
+                Ok(activity) => {
+                    if activity.is_empty() {
+                        println!("No activity in the last {} days.", days);
+                    } else {
+                        println!("=== Activity (last {} days) ===", days);
+                        println!("{:>12}  {:>4}  {:>4}  {:>4}  {:>6}", "Date", "Add", "Tap", "Rem", "Review");
+                        println!("{}", "-".repeat(42));
+                        for a in activity {
+                            println!("{:>12}  {:>4}  {:>4}  {:>4}  {:>6}",
+                                a.period, a.adds, a.taps, a.removes, a.reviews);
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Failed to get activity: {}", e);
                     std::process::exit(1);
                 }
             }
