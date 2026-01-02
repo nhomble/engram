@@ -73,7 +73,7 @@ enum Commands {
         #[arg(long, short, default_value = "7")]
         days: u32,
     },
-    /// Output memories for context injection (used by hooks)
+    /// Initialize engram for this project
     Init,
 }
 
@@ -292,52 +292,8 @@ fn main() {
             }
         }
         Commands::Init => {
-            match db::list_memories(&conn) {
-                Ok(memories) => print_init_context(&memories),
-                Err(e) => {
-                    eprintln!("Failed to list memories: {}", e);
-                    std::process::exit(1);
-                }
-            }
-        }
-    }
-}
-
-fn print_init_context(memories: &[db::Memory]) {
-    println!(r#"# Engram Memory Context
-
-Engram tracks what you learn across sessions. Memories that get tapped survive; unused ones decay.
-
-## Commands
-
-```bash
-# Store a memory (when you learn something useful)
-engram add "<content>"
-
-# Tap a memory (when you use it to inform your response)
-engram tap <id>
-engram tap --match "<pattern>"
-```
-
-## When to Store
-
-- **Corrections**: User corrected you → store so you don't repeat
-- **Decisions**: "We decided to use X for Y"
-- **Preferences**: How user likes things done
-- **Patterns**: Workflows, conventions discovered
-
-## When to Tap
-
-Tap when you actively use a memory to inform your response. This signals value.
-"#);
-
-    if memories.is_empty() {
-        println!("\n## Memories\n\nNo memories yet.");
-    } else {
-        println!("\n## Memories ({} total)\n", memories.len());
-        for m in memories {
-            let short_id = &m.id[..8.min(m.id.len())];
-            println!("- [{}] ({} taps) {}", short_id, m.tap_count, m.content);
+            // DB is already opened/created above, just confirm
+            println!("Initialized engram in .engram/");
         }
     }
 }
