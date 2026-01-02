@@ -101,7 +101,7 @@ SQL views over the event log:
 - [x] GC with ratio-based expiry
 - [x] Event log
 - [x] `engram log` command
-- [ ] Projections/views
+- [x] Projections (`engram hot`, `engram activity`)
 - [ ] TUI for real-time observability
 
 ## Future Vision

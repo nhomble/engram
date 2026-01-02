@@ -516,6 +516,79 @@ fn collect_memories(mut rows: rusqlite::Rows) -> Result<Vec<Memory>> {
     Ok(memories)
 }
 
+/// Hot memories - most tapped in recent time window
+#[derive(Debug)]
+pub struct HotMemory {
+    pub id: String,
+    pub content: String,
+    pub recent_taps: u32,
+    pub total_taps: u32,
+}
+
+/// Get memories with most TAP events in the last N seconds
+pub fn get_hot_memories(conn: &Connection, window_secs: i64, limit: u32) -> Result<Vec<HotMemory>> {
+    let cutoff = now_timestamp() - window_secs;
+
+    let mut stmt = conn.prepare(
+        "SELECT m.id, m.content, COUNT(e.id) as recent_taps, m.tap_count
+         FROM memories m
+         JOIN events e ON e.memory_id = m.id AND e.action = 'TAP' AND e.timestamp >= ?1
+         GROUP BY m.id
+         ORDER BY recent_taps DESC, m.tap_count DESC
+         LIMIT ?2"
+    )?;
+
+    let rows = stmt.query_map(params![cutoff, limit], |row| {
+        Ok(HotMemory {
+            id: row.get(0)?,
+            content: row.get(1)?,
+            recent_taps: row.get(2)?,
+            total_taps: row.get(3)?,
+        })
+    })?;
+
+    rows.collect()
+}
+
+/// Activity summary for a time period
+#[derive(Debug)]
+pub struct ActivitySummary {
+    pub period: String,
+    pub adds: u32,
+    pub taps: u32,
+    pub removes: u32,
+    pub reviews: u32,
+}
+
+/// Get activity summary grouped by day
+pub fn get_activity_by_day(conn: &Connection, days: u32) -> Result<Vec<ActivitySummary>> {
+    let cutoff = now_timestamp() - (days as i64 * 86400);
+
+    let mut stmt = conn.prepare(
+        "SELECT date(timestamp, 'unixepoch', 'localtime') as day,
+                SUM(CASE WHEN action = 'ADD' THEN 1 ELSE 0 END) as adds,
+                SUM(CASE WHEN action = 'TAP' THEN 1 ELSE 0 END) as taps,
+                SUM(CASE WHEN action = 'REMOVE' THEN 1 ELSE 0 END) as removes,
+                SUM(CASE WHEN action = 'REVIEW' THEN 1 ELSE 0 END) as reviews
+         FROM events
+         WHERE timestamp >= ?1
+         GROUP BY day
+         ORDER BY day DESC"
+    )?;
+
+    let rows = stmt.query_map(params![cutoff], |row| {
+        Ok(ActivitySummary {
+            period: row.get(0)?,
+            adds: row.get(1)?,
+            taps: row.get(2)?,
+            removes: row.get(3)?,
+            reviews: row.get(4)?,
+        })
+    })?;
+
+    rows.collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
