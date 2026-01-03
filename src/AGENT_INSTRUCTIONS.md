@@ -58,7 +58,7 @@ git checkout -b new-feature  # Now following the workflow
 engram tap --match "test"
 ```
 
-**Tapping is active acknowledgment** - like marking a bead `in_progress`. Do it when the memory is actively informing your work, not retrospectively.
+**Tapping is active acknowledgment** - like marking a task `in_progress`. Do it when the memory is actively informing your work, not retrospectively.
 
 ### When NOT to Store
 
