@@ -19,7 +19,11 @@ enum Commands {
         content: String,
     },
     /// List memories
-    List,
+    List {
+        /// Include promoted/forgotten memories
+        #[arg(long, short)]
+        all: bool,
+    },
     /// Show a specific memory
     Show {
         /// Memory ID
@@ -99,8 +103,8 @@ fn main() {
                 }
             }
         }
-        Commands::List => {
-            match db::list_memories(&conn) {
+        Commands::List { all } => {
+            match db::list_memories_filtered(&conn, all) {
                 Ok(memories) => {
                     if memories.is_empty() {
                         println!("No memories found.");

@@ -135,7 +135,7 @@ fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result
         // Fetch data outside of draw closure so we can use it for expansion
         let (memories, events) = match db::open_db() {
             Ok(conn) => {
-                let mems = db::list_memories(&conn).unwrap_or_default();
+                let mems = db::list_memories_filtered(&conn, false).unwrap_or_default();
                 let evts = db::get_events(&conn, 100, None, None).unwrap_or_default();
                 (mems, evts)
             }

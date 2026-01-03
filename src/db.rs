@@ -227,6 +227,33 @@ pub fn promote_memory(conn: &Connection, id: &str) -> Result<Option<String>> {
     Ok(content)
 }
 
+/// Get memory IDs that have reached a terminal state (PROMOTE or FORGET)
+pub fn get_terminal_memory_ids(conn: &Connection) -> Result<Vec<MemoryId>> {
+    let mut stmt = conn.prepare(
+        "SELECT DISTINCT memory_id FROM events WHERE action IN ('PROMOTE', 'FORGET') AND memory_id IS NOT NULL"
+    )?;
+    let ids = stmt.query_map([], |row| row.get(0))?
+        .collect::<Result<Vec<_>>>()?;
+    Ok(ids)
+}
+
+/// List memories, optionally excluding those in terminal states
+pub fn list_memories_filtered(conn: &Connection, include_terminal: bool) -> Result<Vec<Memory>> {
+    let all_memories = list_memories(conn)?;
+
+    if include_terminal {
+        return Ok(all_memories);
+    }
+
+    let terminal_ids = get_terminal_memory_ids(conn)?;
+    let filtered: Vec<Memory> = all_memories
+        .into_iter()
+        .filter(|m| !terminal_ids.contains(&m.id))
+        .collect();
+
+    Ok(filtered)
+}
+
 /// Edit a memory's content
 pub fn edit_memory(conn: &Connection, id: &str, new_content: &str) -> Result<bool> {
     // Get old content for event log
@@ -408,5 +435,27 @@ mod tests {
 
         let all = list_memories(&conn).unwrap();
         assert_eq!(all.len(), 2);
+    }
+
+    #[test]
+    fn test_list_memories_filtered() {
+        let conn = open_test_db();
+
+        let id1 = add_memory(&conn, "active memory").unwrap();
+        let id2 = add_memory(&conn, "promoted memory").unwrap();
+        let id3 = add_memory(&conn, "forgotten memory").unwrap();
+
+        // Promote one, forget another
+        promote_memory(&conn, &id2).unwrap();
+        forget_memory(&conn, &id3).unwrap();
+
+        // Filtered should only return active memory
+        let filtered = list_memories_filtered(&conn, false).unwrap();
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].id, id1);
+
+        // With all=true, should return all 3
+        let all = list_memories_filtered(&conn, true).unwrap();
+        assert_eq!(all.len(), 3);
     }
 }
