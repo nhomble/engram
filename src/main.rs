@@ -68,6 +68,9 @@ enum Commands {
         /// Filter by memory ID
         #[arg(long)]
         memory: Option<String>,
+        /// Include TAP events for promoted memories
+        #[arg(long)]
+        all: bool,
     },
     /// Initialize engram for this project
     Init,
@@ -225,8 +228,8 @@ fn main() {
                 }
             }
         }
-        Commands::Log { limit, action, memory } => {
-            match engram.get_enriched_events(limit, action.as_deref(), memory.as_deref()) {
+        Commands::Log { limit, action, memory, all } => {
+            match engram.get_enriched_events(limit, action.as_deref(), memory.as_deref(), all) {
                 Ok(events) => {
                     if events.is_empty() {
                         println!("No events found.");

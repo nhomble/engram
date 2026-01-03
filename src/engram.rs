@@ -72,14 +72,38 @@ impl Engram {
     }
 
     /// Get events with enriched content (TAP events include memory content)
+    /// By default, filters out TAP events for promoted memories (they're in CLAUDE.md now)
     pub fn get_enriched_events(
         &self,
         limit: u32,
         action: Option<&str>,
         memory_id: Option<&str>,
+        include_promoted_taps: bool,
     ) -> rusqlite::Result<Vec<EnrichedEvent>> {
         let events = db::get_events(&self.conn, limit, action, memory_id)?;
-        Ok(events.into_iter().map(|e| EnrichedEvent::from_event(&self.conn, e)).collect())
+
+        // Get promoted memory IDs if we need to filter
+        let promoted_ids = if !include_promoted_taps {
+            db::get_promoted_memory_ids(&self.conn).unwrap_or_default()
+        } else {
+            vec![]
+        };
+
+        let enriched: Vec<EnrichedEvent> = events
+            .into_iter()
+            .filter(|e| {
+                // Filter out TAP events for promoted memories unless include_promoted_taps is true
+                if !include_promoted_taps && e.action == "TAP" {
+                    if let Some(ref mem_id) = e.memory_id {
+                        return !promoted_ids.contains(mem_id);
+                    }
+                }
+                true
+            })
+            .map(|e| EnrichedEvent::from_event(&self.conn, e))
+            .collect();
+
+        Ok(enriched)
     }
 
     /// Add a new memory

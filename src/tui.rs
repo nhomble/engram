@@ -139,7 +139,7 @@ fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result
     loop {
         // Fetch data outside of draw closure so we can use it for expansion
         let memories = engram.list_memories_filtered(false).unwrap_or_default();
-        let events = engram.get_enriched_events(100, None, None).unwrap_or_default();
+        let events = engram.get_enriched_events(100, None, None, false).unwrap_or_default();
 
         // Update counts
         state.memories_count = memories.len();
