@@ -6,9 +6,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
 /// Type alias for memory identifiers
 pub type MemoryId = String;
 
-/// Type alias for ISO 8601 datetime strings
-pub type Timestamp = String;
-
 /// Configuration for engram database
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -36,8 +33,8 @@ pub struct Memory {
     pub id: MemoryId,
     pub content: String,
     pub tap_count: u32,
-    pub last_tapped_at: Option<Timestamp>,
-    pub created_at: Timestamp,
+    pub last_tapped_at: Option<String>,
+    pub created_at: String,
 }
 
 pub fn open_db(config: &Config) -> Result<Connection> {
@@ -72,7 +69,7 @@ pub fn log_event(conn: &Connection, action: &str, memory_id: Option<&str>, data:
 
 #[derive(Debug)]
 pub struct Event {
-    pub timestamp: Timestamp,
+    pub timestamp: String,
     pub action: String,
     pub memory_id: Option<MemoryId>,
     pub data: Option<String>,
@@ -134,7 +131,7 @@ fn generate_id() -> MemoryId {
     format!("{:x}{:x}", now as u64, random)
 }
 
-fn now_timestamp() -> Timestamp {
+fn now_timestamp() -> String {
     let now = chrono::Local::now();
     now.to_rfc3339_opts(chrono::SecondsFormat::Secs, false)
 }

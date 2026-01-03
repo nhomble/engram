@@ -127,9 +127,9 @@ fn main() {
                     println!("ID:         {}", m.id);
                     println!("Content:    {}", m.content);
                     println!("Taps:       {}", m.tap_count);
-                    println!("Created:    {}", format_timestamp(&m.created_at));
+                    println!("Created:    {}", m.created_at);
                     if let Some(ref tapped) = m.last_tapped_at {
-                        println!("Last tap:   {}", format_timestamp(tapped));
+                        println!("Last tap:   {}", tapped);
                     }
                 }
                 Ok(None) => {
@@ -230,10 +230,9 @@ fn main() {
                         println!("No events found.");
                     } else {
                         for e in events {
-                            let time = format_timestamp(&e.timestamp);
                             let mem_id = e.memory_id.as_deref().unwrap_or("-");
                             let short_id = if mem_id.len() > 8 { &mem_id[..8] } else { mem_id };
-                            print!("{} {:8} {}", time, e.action, short_id);
+                            print!("{} {:8} {}", e.timestamp, e.action, short_id);
                             if let Some(data) = &e.data {
                                 print!(" {}", truncate(data, 50));
                             }
@@ -263,7 +262,3 @@ fn main() {
     }
 }
 
-fn format_timestamp(ts: &str) -> String {
-    // Timestamp is already formatted as ISO 8601 datetime string
-    ts.to_string()
-}
