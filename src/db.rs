@@ -192,12 +192,66 @@ pub fn list_memories(conn: &Connection) -> Result<Vec<Memory>> {
     Ok(memories)
 }
 
-pub fn remove_memory(conn: &Connection, id: &str) -> Result<bool> {
-    let rows_affected = conn.execute("DELETE FROM memories WHERE id = ?1", params![id])?;
-    if rows_affected > 0 {
-        log_event(conn, "REMOVE", Some(id), None)?;
+/// Forget a memory (terminal state - discarded)
+pub fn forget_memory(conn: &Connection, id: &str) -> Result<bool> {
+    // Check if memory exists
+    let exists: bool = conn.query_row(
+        "SELECT 1 FROM memories WHERE id = ?1",
+        params![id],
+        |_| Ok(true),
+    ).unwrap_or(false);
+
+    if exists {
+        log_event(conn, "FORGET", Some(id), None)?;
+        Ok(true)
+    } else {
+        Ok(false)
     }
-    Ok(rows_affected > 0)
+}
+
+/// Promote a memory (terminal state - graduated to CLAUDE.md)
+/// Returns the memory content for inclusion in CLAUDE.md
+pub fn promote_memory(conn: &Connection, id: &str) -> Result<Option<String>> {
+    let content: Option<String> = conn.query_row(
+        "SELECT content FROM memories WHERE id = ?1",
+        params![id],
+        |row| row.get(0),
+    ).ok();
+
+    if let Some(ref c) = content {
+        let data = format!(r#"{{"content":"{}"}}"#,
+            c.replace('\\', "\\\\").replace('"', "\\\""));
+        log_event(conn, "PROMOTE", Some(id), Some(&data))?;
+    }
+
+    Ok(content)
+}
+
+/// Get memory IDs that have reached a terminal state (PROMOTE or FORGET)
+pub fn get_terminal_memory_ids(conn: &Connection) -> Result<Vec<MemoryId>> {
+    let mut stmt = conn.prepare(
+        "SELECT DISTINCT memory_id FROM events WHERE action IN ('PROMOTE', 'FORGET') AND memory_id IS NOT NULL"
+    )?;
+    let ids = stmt.query_map([], |row| row.get(0))?
+        .collect::<Result<Vec<_>>>()?;
+    Ok(ids)
+}
+
+/// List memories, optionally excluding those in terminal states
+pub fn list_memories_filtered(conn: &Connection, include_terminal: bool) -> Result<Vec<Memory>> {
+    let all_memories = list_memories(conn)?;
+
+    if include_terminal {
+        return Ok(all_memories);
+    }
+
+    let terminal_ids = get_terminal_memory_ids(conn)?;
+    let filtered: Vec<Memory> = all_memories
+        .into_iter()
+        .filter(|m| !terminal_ids.contains(&m.id))
+        .collect();
+
+    Ok(filtered)
 }
 
 /// Edit a memory's content
@@ -314,16 +368,39 @@ mod tests {
     }
 
     #[test]
-    fn test_remove_memory() {
+    fn test_forget_memory() {
         let conn = open_test_db();
 
-        let id = add_memory(&conn, "to remove").expect("Failed to add memory");
+        let id = add_memory(&conn, "to forget").expect("Failed to add memory");
 
-        let removed = remove_memory(&conn, &id).expect("Failed to remove");
-        assert!(removed);
+        let forgotten = forget_memory(&conn, &id).expect("Failed to forget");
+        assert!(forgotten);
 
+        // Memory still exists (terminal state, not deleted)
         let memory = get_memory(&conn, &id).expect("Failed to get");
-        assert!(memory.is_none());
+        assert!(memory.is_some());
+
+        // But FORGET event was logged
+        let events = get_events(&conn, 10, Some("FORGET"), None).expect("Failed to get events");
+        assert!(!events.is_empty());
+    }
+
+    #[test]
+    fn test_promote_memory() {
+        let conn = open_test_db();
+
+        let id = add_memory(&conn, "important fact").expect("Failed to add memory");
+
+        let content = promote_memory(&conn, &id).expect("Failed to promote");
+        assert_eq!(content, Some("important fact".to_string()));
+
+        // Memory still exists
+        let memory = get_memory(&conn, &id).expect("Failed to get");
+        assert!(memory.is_some());
+
+        // PROMOTE event was logged
+        let events = get_events(&conn, 10, Some("PROMOTE"), None).expect("Failed to get events");
+        assert!(!events.is_empty());
     }
 
     #[test]
@@ -358,5 +435,27 @@ mod tests {
 
         let all = list_memories(&conn).unwrap();
         assert_eq!(all.len(), 2);
+    }
+
+    #[test]
+    fn test_list_memories_filtered() {
+        let conn = open_test_db();
+
+        let id1 = add_memory(&conn, "active memory").unwrap();
+        let id2 = add_memory(&conn, "promoted memory").unwrap();
+        let id3 = add_memory(&conn, "forgotten memory").unwrap();
+
+        // Promote one, forget another
+        promote_memory(&conn, &id2).unwrap();
+        forget_memory(&conn, &id3).unwrap();
+
+        // Filtered should only return active memory
+        let filtered = list_memories_filtered(&conn, false).unwrap();
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].id, id1);
+
+        // With all=true, should return all 3
+        let all = list_memories_filtered(&conn, true).unwrap();
+        assert_eq!(all.len(), 3);
     }
 }
