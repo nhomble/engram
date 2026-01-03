@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand};
 
 mod db;
+mod engram;
 mod tui;
 
 #[derive(Parser)]
@@ -224,7 +225,7 @@ fn main() {
             }
         }
         Commands::Log { limit, action, memory } => {
-            match db::get_events(&conn, limit, action.as_deref(), memory.as_deref()) {
+            match engram::get_enriched_events(&conn, limit, action.as_deref(), memory.as_deref()) {
                 Ok(events) => {
                     if events.is_empty() {
                         println!("No events found.");
@@ -233,16 +234,7 @@ fn main() {
                             let mem_id = e.memory_id.as_deref().unwrap_or("-");
                             let short_id = if mem_id.len() > 8 { &mem_id[..8] } else { mem_id };
                             print!("{} {:8} {}", e.timestamp, e.action, short_id);
-
-                            // Show data if present, or look up memory content for TAP events
-                            if let Some(data) = &e.data {
-                                print!(" {}", truncate(data, 50));
-                            } else if e.action == "TAP" && mem_id != "-" {
-                                // Look up memory content for TAP events
-                                if let Ok(Some(m)) = db::get_memory(&conn, mem_id) {
-                                    print!(" {}", truncate(&m.content, 50));
-                                }
-                            }
+                            print!(" {}", truncate(&e.content, 50));
                             println!();
                         }
                     }

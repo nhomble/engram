@@ -13,6 +13,7 @@ use ratatui::{
 };
 
 use crate::db;
+use crate::engram;
 
 #[derive(PartialEq, Clone, Copy)]
 enum Panel {
@@ -137,7 +138,7 @@ fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result
         let (memories, events) = match db::open_db(&config) {
             Ok(conn) => {
                 let mems = db::list_memories_filtered(&conn, false).unwrap_or_default();
-                let evts = db::get_events(&conn, 100, None, None).unwrap_or_default();
+                let evts = engram::get_enriched_events(&conn, 100, None, None).unwrap_or_default();
                 (mems, evts)
             }
             Err(_) => (vec![], vec![]),
@@ -188,8 +189,7 @@ fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result
                     let time = format_timestamp(&e.timestamp);
                     let mem_id = e.memory_id.as_deref().unwrap_or("-");
                     let short_id = if mem_id.len() > 8 { &mem_id[..8] } else { mem_id };
-                    let data = e.data.as_deref().unwrap_or("");
-                    let data_preview = truncate(data, 40);
+                    let data_preview = truncate(&e.content, 40);
                     let text = format!("{} {:6} {} {}", time, e.action, short_id, data_preview);
 
                     // Color code by memory_id
@@ -349,23 +349,6 @@ fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result
                                     if let Some(idx) = state.events_state.selected() {
                                         if let Some(e) = events.get(idx) {
                                             let mem_id = e.memory_id.as_deref().unwrap_or("-");
-
-                                            // For TAP events without data, look up memory content
-                                            let data_display = if e.data.is_none() && e.action == "TAP" && mem_id != "-" {
-                                                // Look up memory content
-                                                if let Ok(conn) = db::open_db(&config) {
-                                                    if let Ok(Some(m)) = db::get_memory(&conn, mem_id) {
-                                                        m.content
-                                                    } else {
-                                                        "(memory not found)".to_string()
-                                                    }
-                                                } else {
-                                                    "(error loading memory)".to_string()
-                                                }
-                                            } else {
-                                                e.data.as_deref().unwrap_or("(none)").to_string()
-                                            };
-
                                             state.expanded = Some(ExpandedContent {
                                                 title: format!("{} Event", e.action),
                                                 content: format!(
@@ -373,7 +356,7 @@ fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result
                                                     format_timestamp(&e.timestamp),
                                                     e.action,
                                                     mem_id,
-                                                    data_display
+                                                    e.content
                                                 ),
                                             });
                                         }
@@ -444,7 +427,7 @@ fn color_for_memory_id(id: &str) -> Color {
 }
 
 /// Compute hourly activity counts from events for the last 24 hours
-fn compute_hourly_activity(events: &[db::Event]) -> Vec<(String, u64, u64)> {
+fn compute_hourly_activity(events: &[engram::EnrichedEvent]) -> Vec<(String, u64, u64)> {
     let now = chrono::Local::now();
     let cutoff = now - chrono::Duration::hours(24);
 
