@@ -9,6 +9,28 @@ pub type MemoryId = String;
 /// Type alias for Unix timestamps (seconds since epoch)
 pub type Timestamp = i64;
 
+/// Configuration for engram database
+#[derive(Debug, Clone)]
+pub struct Config {
+    pub db_path: PathBuf,
+}
+
+impl Config {
+    /// Create config from environment variables
+    pub fn from_env() -> Self {
+        let db_path = if let Ok(path) = std::env::var("ENGRAM_DB_PATH") {
+            PathBuf::from(path)
+        } else {
+            // Default: .engram/engram.db in current directory
+            let data_dir = PathBuf::from(".engram");
+            fs::create_dir_all(&data_dir).expect("Failed to create .engram directory");
+            data_dir.join("engram.db")
+        };
+
+        Config { db_path }
+    }
+}
+
 #[derive(Debug)]
 pub struct Memory {
     pub id: MemoryId,
@@ -18,20 +40,8 @@ pub struct Memory {
     pub created_at: Timestamp,
 }
 
-pub fn get_db_path() -> PathBuf {
-    // Allow override via environment variable (useful for testing)
-    if let Ok(path) = std::env::var("ENGRAM_DB_PATH") {
-        return PathBuf::from(path);
-    }
-
-    // Default: .engram/engram.db in current directory
-    let data_dir = PathBuf::from(".engram");
-    fs::create_dir_all(&data_dir).expect("Failed to create .engram directory");
-    data_dir.join("engram.db")
-}
-
-pub fn open_db() -> Result<Connection> {
-    let db_path = get_db_path();
+pub fn open_db(config: &Config) -> Result<Connection> {
+    let db_path = &config.db_path;
     let conn = Connection::open(&db_path)?;
 
     // Enable WAL mode for better concurrency
