@@ -68,8 +68,8 @@ enum Commands {
     },
     /// Initialize engram for this project
     Init,
-    /// Output prompt snippet for CLAUDE.md
-    Prompt,
+    /// Output agent instructions for context recovery
+    Prime,
     /// Launch interactive TUI
     Ui,
 }
@@ -250,7 +250,7 @@ fn main() {
             // DB is already opened/created above, just confirm
             println!("Initialized engram in .engram/");
         }
-        Commands::Prompt => {
+        Commands::Prime => {
             print!("{}", include_str!("AGENT_INSTRUCTIONS.md"));
         }
         Commands::Ui => {
