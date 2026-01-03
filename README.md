@@ -11,8 +11,9 @@ cargo install --git https://github.com/nhomble/engram
 ## Usage
 
 ```bash
-engram init                    # create .engram/ in your project
-engram prompt >> CLAUDE.md     # add agent protocol to your docs
+engram init    # Initialize engram in your project
+engram prime   # View agent memory protocol
+engram list    # See what's been learned
 ```
 
 See `engram --help` for all commands.
