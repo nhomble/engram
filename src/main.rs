@@ -66,10 +66,22 @@ enum Commands {
         #[arg(long)]
         memory: Option<String>,
     },
+    /// Show underutilized memories (low tap count)
+    Hot {
+        /// Number of memories to show
+        #[arg(long, short, default_value = "10")]
+        limit: u32,
+    },
+    /// Show recent activity summary
+    Activity {
+        /// Number of events to analyze
+        #[arg(long, short, default_value = "50")]
+        limit: u32,
+    },
     /// Initialize engram for this project
     Init,
-    /// Output prompt snippet for CLAUDE.md
-    Prompt,
+    /// Output agent instructions for context recovery
+    Prime,
     /// Launch interactive TUI
     Ui,
 }
@@ -246,11 +258,40 @@ fn main() {
                 }
             }
         }
+        Commands::Hot { limit } => {
+            match db::get_hot_memories(&conn, limit) {
+                Ok(memories) => {
+                    if memories.is_empty() {
+                        println!("No underutilized memories found.");
+                    } else {
+                        println!("Underutilized memories (low tap count):");
+                        for m in memories {
+                            println!("[{}] taps:{} | {}", m.id, m.tap_count, m.content);
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Failed to get hot memories: {}", e);
+                    std::process::exit(1);
+                }
+            }
+        }
+        Commands::Activity { limit } => {
+            match db::get_activity_summary(&conn, limit) {
+                Ok(summary) => {
+                    println!("{}", summary);
+                }
+                Err(e) => {
+                    eprintln!("Failed to get activity summary: {}", e);
+                    std::process::exit(1);
+                }
+            }
+        }
         Commands::Init => {
             // DB is already opened/created above, just confirm
             println!("Initialized engram in .engram/");
         }
-        Commands::Prompt => {
+        Commands::Prime => {
             print!("{}", include_str!("AGENT_INSTRUCTIONS.md"));
         }
         Commands::Ui => {

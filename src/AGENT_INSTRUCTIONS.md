@@ -80,4 +80,6 @@ engram edit <id> "new"   # update content
 engram promote <id>      # graduate to CLAUDE.md (terminal)
 engram forget <id>       # discard as stale/wrong (terminal)
 engram log               # view event stream
+engram hot               # show underutilized memories (low tap count)
+engram activity          # show recent activity summary
 ```

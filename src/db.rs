@@ -313,6 +313,79 @@ pub fn tap_memories_by_match(conn: &Connection, pattern: &str) -> Result<Vec<Mem
     Ok(ids)
 }
 
+/// Get "hot" memories - underutilized memories with low tap counts
+/// Useful for surfacing memories that might need attention
+pub fn get_hot_memories(conn: &Connection, limit: u32) -> Result<Vec<Memory>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, content, tap_count, last_tapped_at, created_at
+         FROM memories
+         WHERE id NOT IN (SELECT DISTINCT memory_id FROM events WHERE action IN ('PROMOTE', 'FORGET') AND memory_id IS NOT NULL)
+         ORDER BY tap_count ASC, created_at DESC
+         LIMIT ?1"
+    )?;
+
+    let memories = stmt.query_map(params![limit], |row| {
+        Ok(Memory {
+            id: row.get(0)?,
+            content: row.get(1)?,
+            tap_count: row.get(2)?,
+            last_tapped_at: row.get(3)?,
+            created_at: row.get(4)?,
+        })
+    })?.collect::<Result<Vec<_>>>()?;
+
+    Ok(memories)
+}
+
+/// Get activity summary - recent additions, taps, and edits
+pub fn get_activity_summary(conn: &Connection, limit: u32) -> Result<String> {
+    let events = get_events(conn, limit, None, None)?;
+
+    let mut adds = 0;
+    let mut taps = 0;
+    let mut edits = 0;
+    let mut promotes = 0;
+    let mut forgets = 0;
+
+    for e in &events {
+        match e.action.as_str() {
+            "ADD" => adds += 1,
+            "TAP" => taps += 1,
+            "EDIT" => edits += 1,
+            "PROMOTE" => promotes += 1,
+            "FORGET" => forgets += 1,
+            _ => {}
+        }
+    }
+
+    let total_memories = conn.query_row(
+        "SELECT COUNT(*) FROM memories",
+        [],
+        |row| row.get::<_, u32>(0)
+    )?;
+
+    let terminal_count = get_terminal_memory_ids(conn)?.len();
+    let active_count = total_memories - terminal_count as u32;
+
+    Ok(format!(
+        "Activity Summary (last {} events):\n\
+         \n\
+         Memory Stats:\n\
+         - Active: {}\n\
+         - Promoted: {}\n\
+         - Total: {}\n\
+         \n\
+         Recent Actions:\n\
+         - Adds: {}\n\
+         - Taps: {}\n\
+         - Edits: {}\n\
+         - Promotes: {}\n\
+         - Forgets: {}",
+        limit, active_count, terminal_count, total_memories,
+        adds, taps, edits, promotes, forgets
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
