@@ -43,13 +43,11 @@ engram tap --match "test"   # tap by content match
 
 ### Promotion Flow
 
-When a memory gets many taps, it's proven valuable. User may ask you to promote it:
+When user asks you to promote a memory:
 
-```bash
-engram promote <id>   # outputs markdown for CLAUDE.md
-```
-
-Then append the output to CLAUDE.md under `## Learned Facts`.
+1. Run `engram promote <id>` - outputs markdown bullet
+2. Immediately append the output to CLAUDE.md under `## Learned Facts`
+3. No additional confirmation needed - just do it
 
 Engram = working memory. CLAUDE.md = permanent knowledge.
 
