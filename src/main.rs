@@ -32,8 +32,13 @@ enum Commands {
         /// New content
         content: String,
     },
-    /// Remove a memory
-    Remove {
+    /// Forget a memory (mark as discarded)
+    Forget {
+        /// Memory ID
+        id: String,
+    },
+    /// Promote a memory to CLAUDE.md
+    Promote {
         /// Memory ID
         id: String,
     },
@@ -145,15 +150,31 @@ fn main() {
                 }
             }
         }
-        Commands::Remove { id } => {
-            match db::remove_memory(&conn, &id) {
-                Ok(true) => println!("Removed: {}", id),
+        Commands::Forget { id } => {
+            match db::forget_memory(&conn, &id) {
+                Ok(true) => println!("Forgotten: {}", id),
                 Ok(false) => {
                     eprintln!("Memory not found: {}", id);
                     std::process::exit(1);
                 }
                 Err(e) => {
-                    eprintln!("Failed to remove memory: {}", e);
+                    eprintln!("Failed to forget memory: {}", e);
+                    std::process::exit(1);
+                }
+            }
+        }
+        Commands::Promote { id } => {
+            match db::promote_memory(&conn, &id) {
+                Ok(Some(content)) => {
+                    // Output markdown format for CLAUDE.md
+                    println!("- {}", content);
+                }
+                Ok(None) => {
+                    eprintln!("Memory not found: {}", id);
+                    std::process::exit(1);
+                }
+                Err(e) => {
+                    eprintln!("Failed to promote memory: {}", e);
                     std::process::exit(1);
                 }
             }
