@@ -4,6 +4,8 @@ mod db;
 mod engram;
 mod tui;
 
+use engram::Config;
+
 #[derive(Parser)]
 #[command(name = "engram")]
 #[command(about = "Memory observability for Claude agents")]
@@ -85,9 +87,9 @@ fn truncate(s: &str, max_len: usize) -> String {
 
 fn main() {
     let cli = Cli::parse();
-    let config = db::Config::from_env();
+    let config = Config::from_env();
 
-    let conn = match db::open_db(&config) {
+    let conn = match engram::open_db(&config) {
         Ok(c) => c,
         Err(e) => {
             eprintln!("Failed to open database: {}", e);
@@ -97,7 +99,7 @@ fn main() {
 
     match cli.command {
         Commands::Add { content } => {
-            match db::add_memory(&conn, &content) {
+            match engram::add_memory(&conn, &content) {
                 Ok(id) => println!("{}", id),
                 Err(e) => {
                     eprintln!("Failed to add memory: {}", e);
@@ -106,7 +108,7 @@ fn main() {
             }
         }
         Commands::List { all } => {
-            match db::list_memories_filtered(&conn, all) {
+            match engram::list_memories_filtered(&conn, all) {
                 Ok(memories) => {
                     if memories.is_empty() {
                         println!("No memories found.");
@@ -123,7 +125,7 @@ fn main() {
             }
         }
         Commands::Show { id } => {
-            match db::get_memory(&conn, &id) {
+            match engram::get_memory(&conn, &id) {
                 Ok(Some(m)) => {
                     println!("ID:         {}", m.id);
                     println!("Content:    {}", m.content);
@@ -144,7 +146,7 @@ fn main() {
             }
         }
         Commands::Edit { id, content } => {
-            match db::edit_memory(&conn, &id, &content) {
+            match engram::edit_memory(&conn, &id, &content) {
                 Ok(true) => println!("Updated: {}", id),
                 Ok(false) => {
                     eprintln!("Memory not found: {}", id);
@@ -157,7 +159,7 @@ fn main() {
             }
         }
         Commands::Forget { id } => {
-            match db::forget_memory(&conn, &id) {
+            match engram::forget_memory(&conn, &id) {
                 Ok(true) => println!("Forgotten: {}", id),
                 Ok(false) => {
                     eprintln!("Memory not found: {}", id);
@@ -170,7 +172,7 @@ fn main() {
             }
         }
         Commands::Promote { id } => {
-            match db::promote_memory(&conn, &id) {
+            match engram::promote_memory(&conn, &id) {
                 Ok(Some(content)) => {
                     // Output markdown format for CLAUDE.md
                     println!("- {}", content);
@@ -191,7 +193,7 @@ fn main() {
 
             // Tap by match pattern first
             if let Some(pattern) = match_str {
-                match db::tap_memories_by_match(&conn, &pattern) {
+                match engram::tap_memories_by_match(&conn, &pattern) {
                     Ok(matched_ids) => tapped.extend(matched_ids),
                     Err(e) => {
                         eprintln!("Failed to tap by match: {}", e);
@@ -202,7 +204,7 @@ fn main() {
 
             // Tap by explicit IDs
             for id in ids {
-                match db::tap_memory(&conn, &id) {
+                match engram::tap_memory(&conn, &id) {
                     Ok(true) => tapped.push(id),
                     Ok(false) => not_found.push(id),
                     Err(e) => {

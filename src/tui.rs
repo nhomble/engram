@@ -12,8 +12,8 @@ use ratatui::{
     widgets::{Bar, BarChart, BarGroup, Block, Borders, Clear, List, ListItem, ListState, Paragraph, Wrap},
 };
 
-use crate::db;
 use crate::engram;
+use crate::engram::Config;
 
 #[derive(PartialEq, Clone, Copy)]
 enum Panel {
@@ -131,13 +131,13 @@ pub fn run() -> io::Result<()> {
 
 fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<()> {
     let mut state = AppState::new();
-    let config = db::Config::from_env();
+    let config = Config::from_env();
 
     loop {
         // Fetch data outside of draw closure so we can use it for expansion
-        let (memories, events) = match db::open_db(&config) {
+        let (memories, events) = match engram::open_db(&config) {
             Ok(conn) => {
-                let mems = db::list_memories_filtered(&conn, false).unwrap_or_default();
+                let mems = engram::list_memories_filtered(&conn, false).unwrap_or_default();
                 let evts = engram::get_enriched_events(&conn, 100, None, None).unwrap_or_default();
                 (mems, evts)
             }
