@@ -52,7 +52,7 @@ pub fn open_db(config: &Config) -> Result<Connection> {
     Ok(conn)
 }
 
-fn init_schema(conn: &Connection) -> Result<()> {
+pub fn init_schema(conn: &Connection) -> Result<()> {
     conn.execute_batch(include_str!("init.sql"))?;
     Ok(())
 }

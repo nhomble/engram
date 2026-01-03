@@ -146,3 +146,118 @@ impl Engram {
         db::tap_memories_by_match(&self.conn, pattern)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rusqlite::Connection;
+
+    fn create_test_engram() -> Engram {
+        let conn = Connection::open_in_memory().expect("Failed to open in-memory database");
+        db::init_schema(&conn).expect("Failed to init schema");
+        Engram { conn }
+    }
+
+    #[test]
+    fn test_enriched_event_tap_lookup() {
+        let engram = create_test_engram();
+
+        // Add a memory
+        let id = engram.add_memory("Test memory content").unwrap();
+
+        // Tap the memory
+        engram.tap_memory(&id).unwrap();
+
+        // Get enriched events - should include memory content for TAP event
+        let events = engram.get_enriched_events(10, None, None, true).unwrap();
+
+        assert_eq!(events.len(), 2); // ADD and TAP events
+        let tap_event = events.iter().find(|e| e.action == "TAP").unwrap();
+        assert_eq!(tap_event.content, "Test memory content");
+        assert_eq!(tap_event.memory_id, Some(id));
+    }
+
+    #[test]
+    fn test_multiple_taps_same_memory() {
+        let engram = create_test_engram();
+
+        // Add and tap a memory multiple times
+        let id = engram.add_memory("Memory to tap").unwrap();
+        engram.tap_memory(&id).unwrap();
+        engram.tap_memory(&id).unwrap();
+        engram.tap_memory(&id).unwrap();
+
+        // Get all events
+        let events = engram.get_enriched_events(100, None, None, true).unwrap();
+
+        // Should have ADD + 3 TAP events
+        assert_eq!(events.len(), 4);
+        let tap_count = events.iter().filter(|e| e.action == "TAP").count();
+        assert_eq!(tap_count, 3);
+
+        // All TAP events should have the same content
+        let tap_events: Vec<_> = events.iter().filter(|e| e.action == "TAP").collect();
+        assert!(tap_events.iter().all(|e| e.content == "Memory to tap"));
+    }
+
+    #[test]
+    fn test_end_to_end_memory_lifecycle() {
+        let engram = create_test_engram();
+
+        // 1. Add memory
+        let id = engram.add_memory("Lifecycle test").unwrap();
+        let events = engram.get_enriched_events(100, None, None, true).unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].action, "ADD");
+
+        // 2. Tap memory
+        engram.tap_memory(&id).unwrap();
+        let events = engram.get_enriched_events(100, None, None, true).unwrap();
+        assert_eq!(events.len(), 2);
+
+        // 3. Edit memory
+        engram.edit_memory(&id, "Updated content").unwrap();
+        let events = engram.get_enriched_events(100, None, None, true).unwrap();
+        assert_eq!(events.len(), 3);
+        let edit_event = events.iter().find(|e| e.action == "EDIT").unwrap();
+        assert!(edit_event.content.contains("Updated content"));
+
+        // 4. Promote memory
+        let content = engram.promote_memory(&id).unwrap();
+        assert_eq!(content, Some("Updated content".to_string()));
+
+        let events = engram.get_enriched_events(100, None, None, true).unwrap();
+        assert_eq!(events.len(), 4);
+
+        // 5. Verify promoted memory is filtered from list
+        let memories = engram.list_memories_filtered(false).unwrap();
+        assert_eq!(memories.len(), 0); // promoted memory excluded
+
+        let memories_all = engram.list_memories_filtered(true).unwrap();
+        assert_eq!(memories_all.len(), 1); // included with --all
+    }
+
+    #[test]
+    fn test_enriched_event_content_types() {
+        let engram = create_test_engram();
+
+        let id = engram.add_memory("Test content").unwrap();
+
+        // ADD event has content in data field
+        let events = engram.get_enriched_events(100, Some("ADD"), None, true).unwrap();
+        assert_eq!(events.len(), 1);
+        assert!(events[0].content.contains("Test content"));
+
+        // TAP event looks up memory content
+        engram.tap_memory(&id).unwrap();
+        let events = engram.get_enriched_events(100, Some("TAP"), None, true).unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].content, "Test content");
+
+        // FORGET event has no content
+        engram.forget_memory(&id).unwrap();
+        let events = engram.get_enriched_events(100, Some("FORGET"), None, true).unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].content, "(none)");
+    }
+}
