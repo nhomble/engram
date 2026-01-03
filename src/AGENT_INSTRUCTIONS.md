@@ -15,17 +15,30 @@ engram tap <id>
 
 ### When to Store (triggers)
 
+You have rich context - files read, code patterns discovered, errors encountered, dependencies understood. Most of this valuable knowledge dies when your session ends. Be AGGRESSIVE about capturing it.
+
 Store immediately when:
 - **User corrects you** → store the correction
 - **You discover a non-obvious workflow** → store the steps
-- **You hit an error and solve it** → store the fix
+- **You hit an error and solve it** → store the fix AND the context
 - **You learn a project convention** → store the pattern
 - **User states a preference** → store it
+- **You read important architecture/design decisions** → store them
+- **You discover how components interact** → store the relationship
+- **You find configuration patterns** → store them
+- **You learn about dependencies/tools used** → store the context
+- **You understand why code is structured a certain way** → store it
 
+Examples of rich captures:
 ```bash
-engram add "always run cargo test before committing"
-engram add "user wants brief responses, no preamble"
+engram add "Auth uses JWT with 15min expiry, refresh tokens in HTTP-only cookie"
+engram add "DB migrations run via diesel CLI, check diesel.toml for config"
+engram add "Tests mock S3 with minio container, see docker-compose.test.yml"
+engram add "User prefers functional style - use iterators over for loops"
+engram add "API errors use custom Error enum in src/error.rs with context wrapping"
 ```
+
+Don't just store WHAT you did - store WHY and HOW the system works.
 
 ### When to Tap
 
@@ -80,6 +93,4 @@ engram edit <id> "new"   # update content
 engram promote <id>      # graduate to CLAUDE.md (terminal)
 engram forget <id>       # discard as stale/wrong (terminal)
 engram log               # view event stream
-engram hot               # show underutilized memories (low tap count)
-engram activity          # show recent activity summary
 ```
