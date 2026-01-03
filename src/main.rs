@@ -233,8 +233,15 @@ fn main() {
                             let mem_id = e.memory_id.as_deref().unwrap_or("-");
                             let short_id = if mem_id.len() > 8 { &mem_id[..8] } else { mem_id };
                             print!("{} {:8} {}", e.timestamp, e.action, short_id);
+
+                            // Show data if present, or look up memory content for TAP events
                             if let Some(data) = &e.data {
                                 print!(" {}", truncate(data, 50));
+                            } else if e.action == "TAP" && mem_id != "-" {
+                                // Look up memory content for TAP events
+                                if let Ok(Some(m)) = db::get_memory(&conn, mem_id) {
+                                    print!(" {}", truncate(&m.content, 50));
+                                }
                             }
                             println!();
                         }
