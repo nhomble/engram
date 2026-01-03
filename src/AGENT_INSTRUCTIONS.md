@@ -42,11 +42,23 @@ Don't just store WHAT you did - store WHY and HOW the system works.
 
 ### When to Tap
 
-Tap when a memory informs your work - even partially:
+**Tap in real-time as you work** - don't wait until end of session:
+
+- **Before following a workflow** → tap the memory first, then follow it
+- **When making a decision informed by a memory** → tap immediately
+- **When a memory prevents an error** → tap it (it just saved you)
+- **When explaining something you learned from a memory** → tap it
+
 ```bash
-engram tap <id>
-engram tap --match "test"   # tap by content match
+# Example: Following stored workflow
+engram tap 9e7f2f55  # "Development workflow: create branch..."
+git checkout -b new-feature  # Now following the workflow
+
+# Or tap by pattern match
+engram tap --match "test"
 ```
+
+**Tapping is active acknowledgment** - like marking a task `in_progress`. Do it when the memory is actively informing your work, not retrospectively.
 
 ### When NOT to Store
 
