@@ -237,6 +237,16 @@ pub fn get_terminal_memory_ids(conn: &Connection) -> Result<Vec<MemoryId>> {
     Ok(ids)
 }
 
+/// Get memory IDs that have been promoted
+pub fn get_promoted_memory_ids(conn: &Connection) -> Result<Vec<MemoryId>> {
+    let mut stmt = conn.prepare(
+        "SELECT DISTINCT memory_id FROM events WHERE action = 'PROMOTE' AND memory_id IS NOT NULL"
+    )?;
+    let ids = stmt.query_map([], |row| row.get(0))?
+        .collect::<Result<Vec<_>>>()?;
+    Ok(ids)
+}
+
 /// List memories, optionally excluding those in terminal states
 pub fn list_memories_filtered(conn: &Connection, include_terminal: bool) -> Result<Vec<Memory>> {
     let all_memories = list_memories(conn)?;
