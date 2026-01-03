@@ -2,32 +2,42 @@
 
 Your context dies when the session ends. Memories are how insights survive for future sessions.
 
-### Session Start
+# 🧠 AUTONOMOUS MEMORY CAPTURE PROTOCOL 🧠
+
+**CRITICAL**: Store memories AUTONOMOUSLY during work - don't wait for user to ask.
+
+**Core Rule**: Capture knowledge in `engram`, not in code comments, TODOs, or mental notes.
+
+## Session Start Checklist
 
 ```bash
 engram list    # ALWAYS run this first - see what past sessions learned
 ```
 
-Review each memory. If it's relevant to your current task, tap it:
+Review each memory. If relevant, tap it:
 ```bash
 engram tap <id>
+engram tap --match "keyword"  # tap multiple by pattern
 ```
 
 ### When to Store (triggers)
 
-You have rich context - files read, code patterns discovered, errors encountered, dependencies understood. Most of this valuable knowledge dies when your session ends. Be AGGRESSIVE about capturing it.
+You have rich context - files read, code patterns discovered, errors encountered, dependencies understood. Most of this valuable knowledge dies when your session ends. **AUTONOMOUSLY** capture it **AS IT HAPPENS**.
 
-Store immediately when:
+**IMMEDIATELY** store when:
 - **User corrects you** → store the correction
 - **You discover a non-obvious workflow** → store the steps
 - **You hit an error and solve it** → store the fix AND the context
 - **You learn a project convention** → store the pattern
 - **User states a preference** → store it
-- **You read important architecture/design decisions** → store them
-- **You discover how components interact** → store the relationship
+- **🏗️ ARCHITECTURE DISCUSSIONS** → **CRITICAL - store layering, patterns, design decisions**
+- **You discover how components interact** → store the relationship (don't just think it, STORE IT)
 - **You find configuration patterns** → store them
 - **You learn about dependencies/tools used** → store the context
 - **You understand why code is structured a certain way** → store it
+- **You refactor code structure** → store the new architecture
+- **You establish naming conventions** → store them
+- **You make technology choices** → store the decision AND rationale
 
 Examples of rich captures:
 ```bash
@@ -39,6 +49,21 @@ engram add "API errors use custom Error enum in src/error.rs with context wrappi
 ```
 
 Don't just store WHAT you did - store WHY and HOW the system works.
+
+## 🧠 MEMORY CAPTURE CHECKLIST 🧠
+
+Before finishing a significant task, verify you captured:
+
+```
+[ ] Architecture decisions or layer interactions
+[ ] Error solutions with full context
+[ ] User corrections or preferences stated
+[ ] Non-obvious workflows discovered
+[ ] Configuration patterns learned
+[ ] Technology/library choices made
+```
+
+**If any box is unchecked but applicable, STOP and store the memory NOW.**
 
 ### When to Tap
 
