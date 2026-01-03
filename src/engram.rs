@@ -24,7 +24,7 @@ pub struct EnrichedEvent {
 
 impl EnrichedEvent {
     /// Create from a db::Event, enriching TAP events with memory content
-    pub fn from_event(conn: &Connection, event: db::Event) -> Self {
+    fn from_event(conn: &Connection, event: db::Event) -> Self {
         let content = if event.data.is_some() {
             // Use event data if present (ADD, PROMOTE, EDIT, etc.)
             event.data.unwrap()
@@ -53,52 +53,72 @@ impl EnrichedEvent {
     }
 }
 
-/// Get events with enriched content (TAP events include memory content)
-pub fn get_enriched_events(
-    conn: &Connection,
-    limit: u32,
-    action: Option<&str>,
-    memory_id: Option<&str>,
-) -> rusqlite::Result<Vec<EnrichedEvent>> {
-    let events = db::get_events(conn, limit, action, memory_id)?;
-    Ok(events.into_iter().map(|e| EnrichedEvent::from_event(conn, e)).collect())
+/// Main service layer struct - encapsulates database connection
+pub struct Engram {
+    conn: Connection,
 }
 
-// Database connection wrapper
-pub fn open_db(config: &Config) -> rusqlite::Result<Connection> {
-    db::open_db(config)
-}
+impl Engram {
+    /// Create a new Engram instance with the given config
+    pub fn new(config: &Config) -> rusqlite::Result<Self> {
+        let conn = db::open_db(config)?;
+        Ok(Self { conn })
+    }
 
-// Memory CRUD operations
-pub fn add_memory(conn: &Connection, content: &str) -> rusqlite::Result<String> {
-    db::add_memory(conn, content)
-}
+    /// Create a new Engram instance from environment variables
+    pub fn from_env() -> rusqlite::Result<Self> {
+        let config = Config::from_env();
+        Self::new(&config)
+    }
 
-pub fn list_memories_filtered(conn: &Connection, include_terminal: bool) -> rusqlite::Result<Vec<Memory>> {
-    db::list_memories_filtered(conn, include_terminal)
-}
+    /// Get events with enriched content (TAP events include memory content)
+    pub fn get_enriched_events(
+        &self,
+        limit: u32,
+        action: Option<&str>,
+        memory_id: Option<&str>,
+    ) -> rusqlite::Result<Vec<EnrichedEvent>> {
+        let events = db::get_events(&self.conn, limit, action, memory_id)?;
+        Ok(events.into_iter().map(|e| EnrichedEvent::from_event(&self.conn, e)).collect())
+    }
 
-pub fn get_memory(conn: &Connection, id: &str) -> rusqlite::Result<Option<Memory>> {
-    db::get_memory(conn, id)
-}
+    /// Add a new memory
+    pub fn add_memory(&self, content: &str) -> rusqlite::Result<String> {
+        db::add_memory(&self.conn, content)
+    }
 
-pub fn edit_memory(conn: &Connection, id: &str, new_content: &str) -> rusqlite::Result<bool> {
-    db::edit_memory(conn, id, new_content)
-}
+    /// List memories, optionally including terminal states (promoted/forgotten)
+    pub fn list_memories_filtered(&self, include_terminal: bool) -> rusqlite::Result<Vec<Memory>> {
+        db::list_memories_filtered(&self.conn, include_terminal)
+    }
 
-pub fn forget_memory(conn: &Connection, id: &str) -> rusqlite::Result<bool> {
-    db::forget_memory(conn, id)
-}
+    /// Get a specific memory by ID
+    pub fn get_memory(&self, id: &str) -> rusqlite::Result<Option<Memory>> {
+        db::get_memory(&self.conn, id)
+    }
 
-pub fn promote_memory(conn: &Connection, id: &str) -> rusqlite::Result<Option<String>> {
-    db::promote_memory(conn, id)
-}
+    /// Edit a memory's content
+    pub fn edit_memory(&self, id: &str, new_content: &str) -> rusqlite::Result<bool> {
+        db::edit_memory(&self.conn, id, new_content)
+    }
 
-// Tap operations
-pub fn tap_memory(conn: &Connection, id: &str) -> rusqlite::Result<bool> {
-    db::tap_memory(conn, id)
-}
+    /// Forget a memory (mark as discarded)
+    pub fn forget_memory(&self, id: &str) -> rusqlite::Result<bool> {
+        db::forget_memory(&self.conn, id)
+    }
 
-pub fn tap_memories_by_match(conn: &Connection, pattern: &str) -> rusqlite::Result<Vec<String>> {
-    db::tap_memories_by_match(conn, pattern)
+    /// Promote a memory to permanent storage
+    pub fn promote_memory(&self, id: &str) -> rusqlite::Result<Option<String>> {
+        db::promote_memory(&self.conn, id)
+    }
+
+    /// Record a memory tap (usage)
+    pub fn tap_memory(&self, id: &str) -> rusqlite::Result<bool> {
+        db::tap_memory(&self.conn, id)
+    }
+
+    /// Tap memories matching a pattern
+    pub fn tap_memories_by_match(&self, pattern: &str) -> rusqlite::Result<Vec<String>> {
+        db::tap_memories_by_match(&self.conn, pattern)
+    }
 }
