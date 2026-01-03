@@ -349,6 +349,23 @@ fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result
                                     if let Some(idx) = state.events_state.selected() {
                                         if let Some(e) = events.get(idx) {
                                             let mem_id = e.memory_id.as_deref().unwrap_or("-");
+
+                                            // For TAP events without data, look up memory content
+                                            let data_display = if e.data.is_none() && e.action == "TAP" && mem_id != "-" {
+                                                // Look up memory content
+                                                if let Ok(conn) = db::open_db(&config) {
+                                                    if let Ok(Some(m)) = db::get_memory(&conn, mem_id) {
+                                                        m.content
+                                                    } else {
+                                                        "(memory not found)".to_string()
+                                                    }
+                                                } else {
+                                                    "(error loading memory)".to_string()
+                                                }
+                                            } else {
+                                                e.data.as_deref().unwrap_or("(none)").to_string()
+                                            };
+
                                             state.expanded = Some(ExpandedContent {
                                                 title: format!("{} Event", e.action),
                                                 content: format!(
@@ -356,7 +373,7 @@ fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result
                                                     format_timestamp(&e.timestamp),
                                                     e.action,
                                                     mem_id,
-                                                    e.data.as_deref().unwrap_or("(none)")
+                                                    data_display
                                                 ),
                                             });
                                         }
