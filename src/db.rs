@@ -6,8 +6,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 /// Type alias for memory identifiers
 pub type MemoryId = String;
 
-/// Type alias for Unix timestamps (seconds since epoch)
-pub type Timestamp = i64;
+/// Type alias for ISO 8601 datetime strings
+pub type Timestamp = String;
 
 /// Configuration for engram database
 #[derive(Debug, Clone)]
@@ -135,10 +135,8 @@ fn generate_id() -> MemoryId {
 }
 
 fn now_timestamp() -> Timestamp {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs() as Timestamp
+    let now = chrono::Local::now();
+    now.to_rfc3339_opts(chrono::SecondsFormat::Secs, false)
 }
 
 // CRUD operations

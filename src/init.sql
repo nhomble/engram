@@ -2,13 +2,13 @@ CREATE TABLE IF NOT EXISTS memories (
     id TEXT PRIMARY KEY,
     content TEXT NOT NULL,
     tap_count INTEGER NOT NULL DEFAULT 0,
-    last_tapped_at INTEGER,
-    created_at INTEGER NOT NULL
+    last_tapped_at DATETIME,
+    created_at DATETIME NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    timestamp INTEGER NOT NULL,
+    timestamp DATETIME NOT NULL,
     action TEXT NOT NULL,
     memory_id TEXT,
     data TEXT
