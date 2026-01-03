@@ -1,7 +1,6 @@
 use rusqlite::{Connection, Result, params};
 use std::fs;
 use std::path::PathBuf;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Type alias for memory identifiers
 pub type MemoryId = String;
@@ -118,17 +117,13 @@ fn row_to_event(row: &rusqlite::Row) -> rusqlite::Result<Event> {
     })
 }
 
-fn generate_id() -> MemoryId {
-    use std::collections::hash_map::RandomState;
-    use std::hash::{BuildHasher, Hasher};
+fn generate_id(content: &str) -> MemoryId {
+    use sha1::{Digest, Sha1};
 
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_nanos();
-
-    let random = RandomState::new().build_hasher().finish();
-    format!("{:x}{:x}", now as u64, random)
+    let mut hasher = Sha1::new();
+    hasher.update(content.as_bytes());
+    let result = hasher.finalize();
+    format!("{:x}", result)
 }
 
 fn now_timestamp() -> String {
@@ -139,7 +134,7 @@ fn now_timestamp() -> String {
 // CRUD operations
 
 pub fn add_memory(conn: &Connection, content: &str) -> Result<MemoryId> {
-    let id = generate_id();
+    let id = generate_id(content);
     let created_at = now_timestamp();
 
     conn.execute(
