@@ -1,7 +1,10 @@
 use clap::{Parser, Subcommand};
 
 mod db;
+mod engram;
 mod tui;
+
+use engram::Config;
 
 #[derive(Parser)]
 #[command(name = "engram")]
@@ -84,9 +87,9 @@ fn truncate(s: &str, max_len: usize) -> String {
 
 fn main() {
     let cli = Cli::parse();
-    let config = db::Config::from_env();
+    let config = Config::from_env();
 
-    let conn = match db::open_db(&config) {
+    let conn = match engram::open_db(&config) {
         Ok(c) => c,
         Err(e) => {
             eprintln!("Failed to open database: {}", e);
@@ -96,7 +99,7 @@ fn main() {
 
     match cli.command {
         Commands::Add { content } => {
-            match db::add_memory(&conn, &content) {
+            match engram::add_memory(&conn, &content) {
                 Ok(id) => println!("{}", id),
                 Err(e) => {
                     eprintln!("Failed to add memory: {}", e);
@@ -105,7 +108,7 @@ fn main() {
             }
         }
         Commands::List { all } => {
-            match db::list_memories_filtered(&conn, all) {
+            match engram::list_memories_filtered(&conn, all) {
                 Ok(memories) => {
                     if memories.is_empty() {
                         println!("No memories found.");
@@ -122,7 +125,7 @@ fn main() {
             }
         }
         Commands::Show { id } => {
-            match db::get_memory(&conn, &id) {
+            match engram::get_memory(&conn, &id) {
                 Ok(Some(m)) => {
                     println!("ID:         {}", m.id);
                     println!("Content:    {}", m.content);
@@ -143,7 +146,7 @@ fn main() {
             }
         }
         Commands::Edit { id, content } => {
-            match db::edit_memory(&conn, &id, &content) {
+            match engram::edit_memory(&conn, &id, &content) {
                 Ok(true) => println!("Updated: {}", id),
                 Ok(false) => {
                     eprintln!("Memory not found: {}", id);
@@ -156,7 +159,7 @@ fn main() {
             }
         }
         Commands::Forget { id } => {
-            match db::forget_memory(&conn, &id) {
+            match engram::forget_memory(&conn, &id) {
                 Ok(true) => println!("Forgotten: {}", id),
                 Ok(false) => {
                     eprintln!("Memory not found: {}", id);
@@ -169,7 +172,7 @@ fn main() {
             }
         }
         Commands::Promote { id } => {
-            match db::promote_memory(&conn, &id) {
+            match engram::promote_memory(&conn, &id) {
                 Ok(Some(content)) => {
                     // Output markdown format for CLAUDE.md
                     println!("- {}", content);
@@ -190,7 +193,7 @@ fn main() {
 
             // Tap by match pattern first
             if let Some(pattern) = match_str {
-                match db::tap_memories_by_match(&conn, &pattern) {
+                match engram::tap_memories_by_match(&conn, &pattern) {
                     Ok(matched_ids) => tapped.extend(matched_ids),
                     Err(e) => {
                         eprintln!("Failed to tap by match: {}", e);
@@ -201,7 +204,7 @@ fn main() {
 
             // Tap by explicit IDs
             for id in ids {
-                match db::tap_memory(&conn, &id) {
+                match engram::tap_memory(&conn, &id) {
                     Ok(true) => tapped.push(id),
                     Ok(false) => not_found.push(id),
                     Err(e) => {
@@ -224,7 +227,7 @@ fn main() {
             }
         }
         Commands::Log { limit, action, memory } => {
-            match db::get_events(&conn, limit, action.as_deref(), memory.as_deref()) {
+            match engram::get_enriched_events(&conn, limit, action.as_deref(), memory.as_deref()) {
                 Ok(events) => {
                     if events.is_empty() {
                         println!("No events found.");
@@ -233,16 +236,7 @@ fn main() {
                             let mem_id = e.memory_id.as_deref().unwrap_or("-");
                             let short_id = if mem_id.len() > 8 { &mem_id[..8] } else { mem_id };
                             print!("{} {:8} {}", e.timestamp, e.action, short_id);
-
-                            // Show data if present, or look up memory content for TAP events
-                            if let Some(data) = &e.data {
-                                print!(" {}", truncate(data, 50));
-                            } else if e.action == "TAP" && mem_id != "-" {
-                                // Look up memory content for TAP events
-                                if let Ok(Some(m)) = db::get_memory(&conn, mem_id) {
-                                    print!(" {}", truncate(&m.content, 50));
-                                }
-                            }
+                            print!(" {}", truncate(&e.content, 50));
                             println!();
                         }
                     }
