@@ -43,12 +43,22 @@ engram tap --match "test"   # tap by content match
 
 ### Promotion Flow
 
-When a memory gets many taps, it's proven valuable. Promote it:
+When a memory gets many taps, it's proven valuable. User may ask you to promote it:
 
-1. Add the knowledge to CLAUDE.md or project docs
-2. Remove from engram: `engram remove <id>`
+```bash
+engram promote <id>   # outputs markdown for CLAUDE.md
+```
 
-Engram = short-term memory. CLAUDE.md = long-term. Promote what matters.
+Then append the output to CLAUDE.md under `## Learned Facts`.
+
+Engram = working memory. CLAUDE.md = permanent knowledge.
+
+### Forgetting
+
+When a memory is wrong or stale:
+```bash
+engram forget <id>    # mark as discarded
+```
 
 ### What Makes a Good Memory
 
@@ -69,6 +79,7 @@ engram tap <id>          # signal you used a memory
 engram tap --match "X"   # tap memories matching X
 engram show <id>         # view memory details
 engram edit <id> "new"   # update content
-engram remove <id>       # delete memory
+engram promote <id>      # graduate to CLAUDE.md (terminal)
+engram forget <id>       # discard as stale/wrong (terminal)
 engram log               # view event stream
 ```
