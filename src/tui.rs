@@ -185,7 +185,7 @@ fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result
                 .iter()
                 .take(50)
                 .map(|e| {
-                    let time = format_timestamp(e.timestamp);
+                    let time = format_timestamp(&e.timestamp);
                     let mem_id = e.memory_id.as_deref().unwrap_or("-");
                     let short_id = if mem_id.len() > 8 { &mem_id[..8] } else { mem_id };
                     let data = e.data.as_deref().unwrap_or("");
@@ -338,7 +338,7 @@ fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result
                                                     "ID: {}\nTaps: {}\nCreated: {}\n\n{}",
                                                     m.id,
                                                     m.tap_count,
-                                                    format_timestamp(m.created_at),
+                                                    format_timestamp(&m.created_at),
                                                     m.content
                                                 ),
                                             });
@@ -353,7 +353,7 @@ fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result
                                                 title: format!("{} Event", e.action),
                                                 content: format!(
                                                     "Time: {}\nAction: {}\nMemory: {}\n\nData:\n{}",
-                                                    format_timestamp(e.timestamp),
+                                                    format_timestamp(&e.timestamp),
                                                     e.action,
                                                     mem_id,
                                                     e.data.as_deref().unwrap_or("(none)")
@@ -395,11 +395,11 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
         .split(popup_layout[1])[1]
 }
 
-fn format_timestamp(ts: db::Timestamp) -> String {
-    use std::time::{Duration, UNIX_EPOCH};
-    let dt = UNIX_EPOCH + Duration::from_secs(ts as u64);
-    let datetime: chrono::DateTime<chrono::Local> = dt.into();
-    datetime.format("%H:%M:%S").to_string()
+fn format_timestamp(ts: &str) -> String {
+    // Parse RFC3339 datetime and extract time portion
+    chrono::DateTime::parse_from_rfc3339(ts)
+        .map(|dt| dt.format("%H:%M:%S").to_string())
+        .unwrap_or_else(|_| "Invalid".to_string())
 }
 
 fn truncate(s: &str, max_len: usize) -> String {
@@ -428,41 +428,43 @@ fn color_for_memory_id(id: &str) -> Color {
 
 /// Compute hourly activity counts from events for the last 24 hours
 fn compute_hourly_activity(events: &[db::Event]) -> Vec<(String, u64, u64)> {
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs() as i64;
-    let cutoff = now - (24 * 3600);
+    let now = chrono::Local::now();
+    let cutoff = now - chrono::Duration::hours(24);
 
     // Initialize buckets for last 24 hours
-    let mut counts: HashMap<i64, (u64, u64)> = HashMap::new();
+    let mut counts: HashMap<String, (u64, u64)> = HashMap::new();
 
     for e in events {
-        if e.timestamp < cutoff {
-            continue;
-        }
-        // Round down to hour
-        let hour_ts = (e.timestamp / 3600) * 3600;
-        let entry = counts.entry(hour_ts).or_insert((0, 0));
-        match e.action.as_str() {
-            "ADD" => entry.0 += 1,
-            "TAP" => entry.1 += 1,
-            _ => {}
+        // Parse timestamp
+        if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&e.timestamp) {
+            let dt_local: chrono::DateTime<chrono::Local> = dt.into();
+            if dt_local < cutoff {
+                continue;
+            }
+            // Round down to hour
+            let hour_key = dt_local.format("%Y-%m-%d %H:00").to_string();
+            let entry = counts.entry(hour_key).or_insert((0, 0));
+            match e.action.as_str() {
+                "ADD" => entry.0 += 1,
+                "TAP" => entry.1 += 1,
+                _ => {}
+            }
         }
     }
 
     // Sort by timestamp and format labels
     let mut result: Vec<_> = counts.into_iter().collect();
-    result.sort_by_key(|(ts, _)| *ts);
+    result.sort_by_key(|(ts, _)| ts.clone());
 
     result
         .into_iter()
-        .map(|(ts, (a, t))| {
-            let dt = UNIX_EPOCH + std::time::Duration::from_secs(ts as u64);
-            let datetime: chrono::DateTime<chrono::Local> = dt.into();
-            let label = datetime.format("%H").to_string();
+        .map(|(hour_key, (a, t))| {
+            // Extract hour from "YYYY-MM-DD HH:00" format
+            let label = hour_key.split_whitespace()
+                .nth(1)
+                .and_then(|time| time.split(':').next())
+                .unwrap_or("??")
+                .to_string();
             (label, a, t)
         })
         .collect()
