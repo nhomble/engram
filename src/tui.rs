@@ -186,7 +186,15 @@ fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result
                     let time = format_timestamp(&e.timestamp);
                     let mem_id = e.memory_id.as_deref().unwrap_or("-");
                     let short_id = if mem_id.len() > 8 { &mem_id[..8] } else { mem_id };
-                    let data_preview = truncate(&e.content, 40);
+
+                    // For TAP events, don't show content in list (reduces duplication)
+                    // Content is shown when pressing Enter to expand
+                    let data_preview = if e.action == "TAP" {
+                        String::new()
+                    } else {
+                        truncate(&e.content, 40)
+                    };
+
                     let text = format!("{} {:6} {} {}", time, e.action, short_id, data_preview);
 
                     // Color code by memory_id
