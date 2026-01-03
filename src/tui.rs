@@ -12,8 +12,7 @@ use ratatui::{
     widgets::{Bar, BarChart, BarGroup, Block, Borders, Clear, List, ListItem, ListState, Paragraph, Wrap},
 };
 
-use crate::engram;
-use crate::engram::Config;
+use crate::engram::{Engram, EnrichedEvent};
 
 #[derive(PartialEq, Clone, Copy)]
 enum Panel {
@@ -131,18 +130,16 @@ pub fn run() -> io::Result<()> {
 
 fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<()> {
     let mut state = AppState::new();
-    let config = Config::from_env();
+
+    let engram = match Engram::from_env() {
+        Ok(e) => e,
+        Err(_) => return Ok(()), // Exit gracefully if DB can't be opened
+    };
 
     loop {
         // Fetch data outside of draw closure so we can use it for expansion
-        let (memories, events) = match engram::open_db(&config) {
-            Ok(conn) => {
-                let mems = engram::list_memories_filtered(&conn, false).unwrap_or_default();
-                let evts = engram::get_enriched_events(&conn, 100, None, None).unwrap_or_default();
-                (mems, evts)
-            }
-            Err(_) => (vec![], vec![]),
-        };
+        let memories = engram.list_memories_filtered(false).unwrap_or_default();
+        let events = engram.get_enriched_events(100, None, None).unwrap_or_default();
 
         // Update counts
         state.memories_count = memories.len();
@@ -427,7 +424,7 @@ fn color_for_memory_id(id: &str) -> Color {
 }
 
 /// Compute hourly activity counts from events for the last 24 hours
-fn compute_hourly_activity(events: &[engram::EnrichedEvent]) -> Vec<(String, u64, u64)> {
+fn compute_hourly_activity(events: &[EnrichedEvent]) -> Vec<(String, u64, u64)> {
     let now = chrono::Local::now();
     let cutoff = now - chrono::Duration::hours(24);
 
