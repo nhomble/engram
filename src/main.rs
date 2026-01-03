@@ -84,8 +84,9 @@ fn truncate(s: &str, max_len: usize) -> String {
 
 fn main() {
     let cli = Cli::parse();
+    let config = db::Config::from_env();
 
-    let conn = match db::open_db() {
+    let conn = match db::open_db(&config) {
         Ok(c) => c,
         Err(e) => {
             eprintln!("Failed to open database: {}", e);
