@@ -2,7 +2,7 @@
 name = "engram"
 version = "0.1.0"
 edition = "2021"
-description = "Garbage-collected memory for Claude agents"
+description = "External agent memory store"
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
