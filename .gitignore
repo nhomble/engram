@@ -16,7 +16,6 @@ venv/
 
 # Rust
 target/
-Cargo.lock
 
 # Local engram data (user-specific)
 .engram/
