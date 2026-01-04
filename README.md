@@ -12,8 +12,12 @@ cargo install --git https://github.com/nhomble/engram
 
 ```bash
 engram init    # Initialize engram in your project
-engram prime   # View agent memory protocol
-engram list    # See what's been learned
+echo "Use 'engram' for agent memory protocol and commands" >> AGENTS.md
 ```
 
 See `engram --help` for all commands.
+
+### For humans
+
+`engram ui`
+
