@@ -23,11 +23,37 @@ pub struct EnrichedEvent {
 }
 
 impl EnrichedEvent {
+    /// Extract clean content from JSON event data
+    fn extract_content(action: &str, json_data: &str) -> String {
+        if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(json_data) {
+            match action {
+                "ADD" | "PROMOTE" => {
+                    // Extract "content" field from {"content":"..."}
+                    parsed.get("content")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or(json_data)
+                        .to_string()
+                }
+                "EDIT" => {
+                    // Extract "new" field from {"old":"...","new":"..."}
+                    parsed.get("new")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or(json_data)
+                        .to_string()
+                }
+                _ => json_data.to_string()
+            }
+        } else {
+            // If JSON parse fails, return raw data
+            json_data.to_string()
+        }
+    }
+
     /// Create from a db::Event, enriching TAP events with memory content
     fn from_event(conn: &Connection, event: db::Event) -> Self {
-        let content = if event.data.is_some() {
-            // Use event data if present (ADD, PROMOTE, EDIT, etc.)
-            event.data.unwrap()
+        let content = if let Some(data) = event.data {
+            // Extract clean content from JSON data (ADD, PROMOTE, EDIT, etc.)
+            Self::extract_content(&event.action, &data)
         } else if event.action == "TAP" {
             // Look up memory content for TAP events
             if let Some(ref mem_id) = event.memory_id {
