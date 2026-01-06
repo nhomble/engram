@@ -110,8 +110,16 @@ mod tests {
 
     #[test]
     fn test_ca_generation() {
-        // Use temp directory for testing
-        let temp_dir = std::env::temp_dir().join("engram-mitm-test");
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+
+        // Use unique temp directory for testing to avoid parallel test conflicts
+        let unique_id = COUNTER.fetch_add(1, Ordering::SeqCst);
+        let temp_dir = std::env::temp_dir().join(format!("engram-mitm-test-{}", unique_id));
+
+        // Clean up any previous state
+        std::fs::remove_dir_all(&temp_dir).ok();
+
         std::env::set_var("HOME", &temp_dir);
 
         let ca = CertificateAuthority::load_or_create().unwrap();
@@ -131,14 +139,22 @@ mod tests {
 
     #[test]
     fn test_ca_persistence() {
-        let temp_dir = std::env::temp_dir().join("engram-mitm-persist-test");
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+
+        let unique_id = COUNTER.fetch_add(1, Ordering::SeqCst);
+        let temp_dir = std::env::temp_dir().join(format!("engram-mitm-persist-test-{}", unique_id));
+
+        // Clean up any previous state
+        std::fs::remove_dir_all(&temp_dir).ok();
+
         std::env::set_var("HOME", &temp_dir);
 
         // Create CA
         let ca1 = CertificateAuthority::load_or_create().unwrap();
         let pem1 = ca1.cert_pem().to_string();
 
-        // Load CA again
+        // Load CA again - should load from disk, not regenerate
         let ca2 = CertificateAuthority::load_or_create().unwrap();
         let pem2 = ca2.cert_pem().to_string();
 
