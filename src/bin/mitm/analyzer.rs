@@ -6,7 +6,7 @@ use super::buffer::ConversationBuffer;
 use std::io::Write;
 use std::process::{Command, Stdio};
 
-const ANALYZER_PROMPT_TEMPLATE: &str = r#"You are a memory extraction agent. Review this conversation between a user and Claude assistant.
+const ANALYZER_PROMPT_TEMPLATE: &str = r#"You are a memory extraction agent. Review these Claude API requests.
 
 Your job: identify learnings worth storing in engram (memory database).
 
@@ -22,8 +22,8 @@ engram add "concise, self-contained fact"
 
 Output only engram commands, one per line. No explanations.
 
-Conversation to analyze:
-{conversation_json}
+Claude API requests to analyze (JSON array):
+{requests_json}
 "#;
 
 /// Result of analyzing a conversation
@@ -39,13 +39,11 @@ pub struct AnalysisResult {
     pub stderr: String,
 }
 
-/// Analyze a conversation and extract memories using Claude Code headless mode
+/// Analyze buffered requests and extract memories using Claude Code headless mode
 ///
-/// Spawns `claude --model haiku` and passes the conversation for analysis
+/// Spawns `claude --model haiku` and passes the raw JSON requests for analysis
 pub fn analyze_conversation(buffer: &ConversationBuffer) -> Result<AnalysisResult, Box<dyn std::error::Error>> {
-    let messages = buffer.get_all();
-
-    if messages.is_empty() {
+    if buffer.is_empty() {
         return Ok(AnalysisResult {
             memories: vec![],
             raw_output: String::new(),
@@ -53,11 +51,11 @@ pub fn analyze_conversation(buffer: &ConversationBuffer) -> Result<AnalysisResul
         });
     }
 
-    // Serialize conversation to JSON
-    let conversation_json = serde_json::to_string_pretty(&messages)?;
+    // Get requests as JSON array
+    let requests_json = buffer.to_json_array();
 
     // Build analyzer prompt
-    let prompt = ANALYZER_PROMPT_TEMPLATE.replace("{conversation_json}", &conversation_json);
+    let prompt = ANALYZER_PROMPT_TEMPLATE.replace("{requests_json}", &requests_json);
 
     // Spawn Claude CLI in headless mode
     let mut child = Command::new("claude")
