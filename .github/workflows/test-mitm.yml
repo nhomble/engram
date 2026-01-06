@@ -1,0 +1,57 @@
+name: Test MITM Proxy
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Check engram-mitm binary compiles
+        run: cargo check --bin engram-mitm
+
+      - name: Run all tests
+        run: cargo test
+
+      - name: Build engram-mitm binary
+        run: cargo build --release --bin engram-mitm
+
+      - name: Verify binary exists
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            test -f target/release/engram-mitm.exe
+          else
+            test -f target/release/engram-mitm
+          fi
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Run clippy
+        run: cargo clippy --bin engram-mitm -- -D warnings
+        continue-on-error: true  # Don't fail build on warnings for now
