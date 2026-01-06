@@ -2,7 +2,7 @@
 ///
 /// Spawns Claude CLI to analyze conversations and extract memories
 
-use crate::buffer::{ConversationBuffer, Message};
+use super::buffer::{ConversationBuffer, Message};
 use std::io::Write;
 use std::process::{Command, Stdio};
 

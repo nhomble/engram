@@ -13,6 +13,7 @@ const CA_KEY_FILE: &str = "ca.key";
 /// Certificate Authority for signing per-connection certs
 pub struct CertificateAuthority {
     cert: Certificate,
+    key_pair: KeyPair,
     cert_pem: String,
 }
 
@@ -31,14 +32,17 @@ impl CertificateAuthority {
             let key_pem = fs::read_to_string(&key_path)?;
 
             let key_pair = KeyPair::from_pem(&key_pem)?;
-            let params = CertificateParams::from_ca_cert_pem(&cert_pem)?;
-            let cert = Certificate::from_params(params)?;
+            let mut params = CertificateParams::default();
+            params.is_ca = rcgen::IsCa::Ca(rcgen::BasicConstraints::Unconstrained);
 
-            Ok(Self { cert, cert_pem })
+            let cert = params.self_signed(&key_pair)?;
+
+            Ok(Self { cert, key_pair, cert_pem })
         } else {
             // Generate new CA
             fs::create_dir_all(&ca_dir)?;
 
+            let key_pair = KeyPair::generate()?;
             let mut params = CertificateParams::default();
             params.is_ca = rcgen::IsCa::Ca(rcgen::BasicConstraints::Unconstrained);
 
@@ -47,9 +51,9 @@ impl CertificateAuthority {
             dn.push(DnType::OrganizationName, "Engram");
             params.distinguished_name = dn;
 
-            let cert = Certificate::from_params(params)?;
-            let cert_pem = cert.serialize_pem()?;
-            let key_pem = cert.serialize_private_key_pem();
+            let cert = params.self_signed(&key_pair)?;
+            let cert_pem = cert.pem();
+            let key_pem = key_pair.serialize_pem();
 
             fs::write(&cert_path, &cert_pem)?;
             fs::write(&key_path, &key_pem)?;
@@ -66,20 +70,21 @@ impl CertificateAuthority {
             println!("  Import {} to 'Trusted Root Certification Authorities'", cert_path.display());
             println!("\n============================================\n");
 
-            Ok(Self { cert, cert_pem })
+            Ok(Self { cert, key_pair, cert_pem })
         }
     }
 
     /// Generate a certificate for a specific domain signed by this CA
     pub fn sign_for_domain(&self, domain: &str) -> Result<(String, String), Box<dyn std::error::Error>> {
+        let key_pair = KeyPair::generate()?;
         let mut params = CertificateParams::default();
         params.subject_alt_names = vec![
-            rcgen::SanType::DnsName(domain.to_string()),
+            rcgen::SanType::DnsName(rcgen::Ia5String::try_from(domain.to_string())?),
         ];
 
-        let cert = Certificate::from_params(params)?;
-        let cert_pem = cert.serialize_pem_with_signer(&self.cert)?;
-        let key_pem = cert.serialize_private_key_pem();
+        let cert = params.signed_by(&key_pair, &self.cert, &self.key_pair)?;
+        let cert_pem = cert.pem();
+        let key_pem = key_pair.serialize_pem();
 
         Ok((cert_pem, key_pem))
     }

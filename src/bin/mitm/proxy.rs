@@ -2,8 +2,8 @@
 ///
 /// Transparently proxies all traffic while capturing Claude API messages
 
-use crate::buffer::{ConversationBuffer, Message};
-use crate::cert::CertificateAuthority;
+use super::buffer::{ConversationBuffer, Message};
+use super::cert::CertificateAuthority;
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper::{Method, Request, Response, StatusCode};
