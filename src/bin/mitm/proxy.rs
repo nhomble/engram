@@ -2,7 +2,7 @@
 ///
 /// Transparently proxies all traffic while capturing Claude API messages
 
-use super::buffer::{ConversationBuffer, Message};
+use super::buffer::ConversationBuffer;
 use super::cert::CertificateAuthority;
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
