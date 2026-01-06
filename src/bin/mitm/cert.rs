@@ -22,7 +22,12 @@ impl CertificateAuthority {
     ///
     /// If CA doesn't exist, generates new one and prints trust instructions
     pub fn load_or_create() -> Result<Self, Box<dyn std::error::Error>> {
-        let ca_dir = ca_directory()?;
+        Self::load_or_create_with_dir(None)
+    }
+
+    /// Load or create CA certificate with custom directory (for testing)
+    fn load_or_create_with_dir(ca_dir: Option<PathBuf>) -> Result<Self, Box<dyn std::error::Error>> {
+        let ca_dir = ca_dir.unwrap_or_else(|| ca_directory().unwrap());
         let cert_path = ca_dir.join(CA_CERT_FILE);
         let key_path = ca_dir.join(CA_KEY_FILE);
 
@@ -116,17 +121,15 @@ mod tests {
 
         // Use unique temp directory for testing to avoid parallel test conflicts
         let unique_id = COUNTER.fetch_add(1, Ordering::SeqCst);
-        let temp_dir = std::env::temp_dir().join(format!("engram-mitm-test-{}", unique_id));
+        let ca_dir = std::env::temp_dir().join(format!("engram-mitm-test-{}", unique_id));
 
         // Clean up any previous state
-        std::fs::remove_dir_all(&temp_dir).ok();
+        std::fs::remove_dir_all(&ca_dir).ok();
 
-        std::env::set_var("HOME", &temp_dir);
-
-        let ca = CertificateAuthority::load_or_create().unwrap();
+        let ca = CertificateAuthority::load_or_create_with_dir(Some(ca_dir.clone())).unwrap();
 
         // Verify CA cert exists
-        let cert_path = temp_dir.join(".engram-mitm").join(CA_CERT_FILE);
+        let cert_path = ca_dir.join(CA_CERT_FILE);
         assert!(cert_path.exists());
 
         // Verify we can sign a domain cert
@@ -135,7 +138,7 @@ mod tests {
         assert!(key_pem.contains("BEGIN PRIVATE KEY"));
 
         // Cleanup
-        std::fs::remove_dir_all(&temp_dir).ok();
+        std::fs::remove_dir_all(&ca_dir).ok();
     }
 
     #[test]
@@ -145,25 +148,23 @@ mod tests {
         static COUNTER: AtomicU64 = AtomicU64::new(0);
 
         let unique_id = COUNTER.fetch_add(1, Ordering::SeqCst);
-        let temp_dir = std::env::temp_dir().join(format!("engram-mitm-persist-test-{}", unique_id));
+        let ca_dir = std::env::temp_dir().join(format!("engram-mitm-persist-test-{}", unique_id));
 
         // Clean up any previous state
-        std::fs::remove_dir_all(&temp_dir).ok();
-
-        std::env::set_var("HOME", &temp_dir);
+        std::fs::remove_dir_all(&ca_dir).ok();
 
         // Create CA
-        let ca1 = CertificateAuthority::load_or_create().unwrap();
+        let ca1 = CertificateAuthority::load_or_create_with_dir(Some(ca_dir.clone())).unwrap();
         let pem1 = ca1.cert_pem().to_string();
 
         // Load CA again - should load from disk, not regenerate
-        let ca2 = CertificateAuthority::load_or_create().unwrap();
+        let ca2 = CertificateAuthority::load_or_create_with_dir(Some(ca_dir.clone())).unwrap();
         let pem2 = ca2.cert_pem().to_string();
 
         // Should be the same
         assert_eq!(pem1, pem2);
 
         // Cleanup
-        std::fs::remove_dir_all(&temp_dir).ok();
+        std::fs::remove_dir_all(&ca_dir).ok();
     }
 }
