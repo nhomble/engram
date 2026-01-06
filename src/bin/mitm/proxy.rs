@@ -106,6 +106,8 @@ async fn handle_http(
     req: Request<Incoming>,
     config: Arc<ProxyConfig>,
 ) -> Result<Response<String>, hyper::Error> {
+    use http_body_util::BodyExt;
+
     let uri = req.uri().clone();
     let method = req.method().clone();
 
@@ -119,16 +121,31 @@ async fn handle_http(
     if is_claude_api {
         println!("  → Intercepted Claude API request");
 
-        // For now, just log that we saw it
-        // In a full implementation, we would:
-        // 1. Forward the request to the real API
-        // 2. Capture the request/response
-        // 3. Parse messages and add to buffer
+        // Collect the request body
+        let (_parts, body) = req.into_parts();
+        let body_bytes = match body.collect().await {
+            Ok(collected) => collected.to_bytes(),
+            Err(e) => {
+                eprintln!("Failed to read body: {}", e);
+                return Ok(Response::builder()
+                    .status(StatusCode::BAD_REQUEST)
+                    .body("Failed to read request body".to_string())
+                    .unwrap());
+            }
+        };
 
-        // For MVP, return a placeholder
+        // Convert to string
+        if let Ok(body_str) = String::from_utf8(body_bytes.to_vec()) {
+            println!("  → Captured {} bytes of JSON", body_str.len());
+
+            // Add to buffer
+            config.buffer.push(body_str);
+        }
+
+        // Return placeholder response (forwarding will be implemented next)
         Ok(Response::builder()
             .status(StatusCode::OK)
-            .body("Proxy intercepted (forwarding not yet implemented)".to_string())
+            .body("Request captured (forwarding not yet implemented)".to_string())
             .unwrap())
     } else {
         // Non-Claude traffic - just pass through (not implemented yet)
