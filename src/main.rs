@@ -2,6 +2,7 @@ use clap::{Parser, Subcommand};
 
 mod db;
 mod engram;
+mod mitm;
 mod tui;
 
 use engram::Engram;
