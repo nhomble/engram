@@ -2,22 +2,29 @@
 
 Quick setup guide for using engram with Claude Code hooks.
 
-## Install
+## Quick Install (Recommended)
+
+### 1. Install engram binary
 
 ```bash
 cargo install --git https://github.com/nhomble/engram
 ```
 
-## Local Setup (This Project)
+### 2. Install plugin
 
-The hooks are already configured in `.claude/hooks/`. Just initialize engram:
+In Claude Code:
 
 ```bash
-engram init
+/plugin marketplace add nhomble/engram
+/plugin install engram
 ```
 
-Start a Claude Code session and you'll see:
+That's it! The plugin auto-configures hooks and auto-initializes engram in each project.
+
+When you start a Claude session, you'll see:
 ```
+📦 Initializing engram for this project...
+
 ## 🧠 Engram Memory Protocol
 
 Run `engram list` at session start to see all memories.
@@ -28,7 +35,9 @@ Store learnings immediately: `engram add "content"`
 ...
 ```
 
-## Global Setup (All Projects)
+## Manual Setup (Alternative)
+
+If you prefer not to use the plugin:
 
 To use hooks across all Claude Code projects:
 

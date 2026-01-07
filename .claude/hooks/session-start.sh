@@ -7,7 +7,15 @@ set -e
 # Check if engram is available
 if ! command -v engram &> /dev/null; then
     echo "⚠️  Engram not found in PATH" >&2
+    echo "Install: cargo install --git https://github.com/nhomble/engram" >&2
     exit 0
+fi
+
+# Auto-initialize if database doesn't exist
+if [ ! -f .engram/engram.db ]; then
+    echo "📦 Initializing engram for this project..." >&2
+    engram init >&2 2>&1
+    echo >&2
 fi
 
 cat >&2 <<'PROTOCOL'

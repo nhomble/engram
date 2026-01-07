@@ -1,0 +1,10 @@
+{
+  "name": "engram",
+  "description": "Memory observability for Claude agents. Store what you learn, tap what you use, promote what matters.",
+  "version": "0.1.0",
+  "author": {
+    "name": "nhomble",
+    "url": "https://github.com/nhomble/engram"
+  },
+  "hooks": ".claude/hooks/hooks.json"
+}
