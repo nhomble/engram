@@ -104,3 +104,20 @@ engram init
 ```
 
 That's it. The hooks will now run in all Claude Code sessions.
+
+## Upgrading
+
+### Upgrade binary
+
+```bash
+cargo install --git https://github.com/nhomble/engram --force
+```
+
+### Upgrade plugin
+
+```bash
+/plugin marketplace update
+/plugin update engram
+```
+
+**Note**: Keep binary and plugin versions in sync for best compatibility.
