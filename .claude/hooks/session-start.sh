@@ -6,8 +6,7 @@ set -e
 
 # Check if engram is available
 if ! command -v engram &> /dev/null; then
-    echo "⚠️  Engram not found in PATH" >&2
-    echo "Install: cargo install --git https://github.com/nhomble/engram" >&2
+    echo "⚠️  Engram binary not found. Plugin requires engram CLI to be installed." >&2
     exit 0
 fi
 

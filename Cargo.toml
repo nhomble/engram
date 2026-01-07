@@ -3,6 +3,8 @@ name = "engram"
 version = "0.1.0"
 edition = "2021"
 description = "External agent memory store"
+license = "MIT"
+repository = "https://github.com/nhomble/engram"
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
