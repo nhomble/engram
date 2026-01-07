@@ -1,0 +1,15 @@
+{
+  "name": "engram-marketplace",
+  "owner": {
+    "name": "nhomble",
+    "url": "https://github.com/nhomble/engram"
+  },
+  "plugins": [
+    {
+      "name": "engram",
+      "source": ".",
+      "description": "Memory observability for Claude agents. Auto-configures hooks for SessionStart, PreCompact, and SessionEnd.",
+      "version": "0.1.0"
+    }
+  ]
+}
