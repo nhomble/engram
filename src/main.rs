@@ -2,6 +2,7 @@ use clap::{Parser, Subcommand};
 
 mod db;
 mod engram;
+mod mitm;
 mod tui;
 
 use engram::Engram;
@@ -78,6 +79,18 @@ enum Commands {
     Prime,
     /// Launch interactive TUI
     Ui,
+    /// Watch mitmproxy for Claude API traffic and extract memories
+    Mitmproxy {
+        /// Mitmproxy web API URL
+        #[arg(long, default_value = "http://localhost:8081")]
+        url: String,
+        /// Poll interval in seconds
+        #[arg(long, short, default_value = "5")]
+        interval: u64,
+        /// Batch size before running analyzer
+        #[arg(long, short, default_value = "10")]
+        batch: usize,
+    },
 }
 
 fn truncate(s: &str, max_len: usize) -> String {
@@ -261,6 +274,16 @@ fn main() {
                 eprintln!("TUI error: {}", e);
                 std::process::exit(1);
             }
+        }
+        Commands::Mitmproxy { url, interval, batch } => {
+            // Create tokio runtime for async operations
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                if let Err(e) = mitm::run_watcher(&url, interval, batch, engram).await {
+                    eprintln!("Mitmproxy watcher error: {}", e);
+                    std::process::exit(1);
+                }
+            });
         }
     }
 }
